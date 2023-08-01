@@ -1,0 +1,4 @@
+<launch>
+    <node name="ld_pub" pkg="lane_detection" type="pub.py" output="screen" respawn="true"/>
+    <node name="sign_node" pkg="webot_examples" type="camera_example.py" output="screen" respawn="true"/>
+</launch>

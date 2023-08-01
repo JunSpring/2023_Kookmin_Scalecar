@@ -1,0 +1,8 @@
+<launch>
+    <include file="$(find wego)/launch/teleop.launch" />
+    <include file="$(find wego)/launch/view_sensors.launch" />
+    <node name="image_proc" pkg="image_proc" type="image_proc" ns="usb_cam"  output="screen" respawn="true"/>
+    <include file="$(find aruco_detect)/launch/aruco_detect.launch" />
+    <node name="scan_py_reciever" pkg="webot_examples" type="point_cloud.py" output="screen" respawn="true"/>
+    <include file="$(find obstacle_detector)/launch/nodes.launch" />
+</launch>
