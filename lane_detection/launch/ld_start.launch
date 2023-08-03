@@ -1,0 +1,4 @@
+<launch>
+	<node name="ld_pub" pkg="lane_detection" type="pub.py" output="screen" respawn="true"/>
+	<node name="ld_sub" pkg="lane_detection" type="sub.py" output="screen" respawn="true"/>
+</launch>
