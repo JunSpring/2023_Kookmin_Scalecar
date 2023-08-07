@@ -7,3 +7,8 @@ class StateNum(IntEnum):
     DYNAMIC_OBSTACLE                    = 4
     RUBBERCON_DRIVING                   = 5
     STATIC_OBSTACLE                     = 6
+
+class YoloNum(IntEnum):
+    STATIC_OBSTACLE                     = 0
+    DYNAMIC_OBSTACLE                    = 1
+    RUBBERCONE                          = 2
