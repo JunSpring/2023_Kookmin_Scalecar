@@ -7,15 +7,15 @@ import numpy as np
 from sensor_msgs.msg import LaserScan, PointCloud
 from geometry_msgs.msg import Point32
 from std_msgs.msg import Float64
-from webot_examples.msg import lidar_msg
+from scale_car.msg import lidar_msg
 
 import math
 
 # ------------------------ 전역변수 ------------------------
 # 좌우 ROI Parameter
-parameter = 1
+lateral_roi_param = 1
 # 앞뒤 ROI Parameter
-roi_parameter = 0
+axial_roi_param = 0
 
 # 영점
 origin = (0, 0)
@@ -42,15 +42,15 @@ class rpScanfReceiver:
         self.pc_pub.publish(PC_data)
     
     def lidar_callback(self, data):
-        global parameter
-        global roi_parameter
+        global lateral_roi_param
+        global axial_roi_param
 
         if data.state == 3:
-            parameter = 2
-            roi_parameter = -0.25
+            lateral_roi_param = 2
+            axial_roi_param = -0.25
         else:
-            parameter = 1
-            roi_parameter = 0
+            lateral_roi_param = 1
+            axial_roi_param = 0
 
 def calc_axis_xy(_theta, _distance, _min_range, _max_range):
     if _min_range <= _distance <= _max_range:
@@ -61,8 +61,8 @@ def calc_axis_xy(_theta, _distance, _min_range, _max_range):
         return (0, 0)
 
 def is_data(_x, _y):
-    global parameter
-    global roi_parameter
+    global lateral_roi_param
+    global axial_roi_param
 
     if (_x, _y) == (0, 0):
         return False
