@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<launch>
+	<node name="scale_car_yolov5" pkg="scale_car_yolov5" type="ros_detect.py" output="screen">
+		<param name="source" value="0" />
+		<param name="weights" value="/home/wego/scale_car_result_160_0809_2/weights/best.pt" />
+		<param name="data" value="$(find scale_car_yolov5)/src/yolov5/data/scale_car.yaml" />
+		<param name="device" value="cpu" />
+	</node>
+</launch>
