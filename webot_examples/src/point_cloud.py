@@ -68,7 +68,7 @@ def is_data(_x, _y):
         return False
     if state == 3 and calc_distance(origin, (_x, _y)) <= 1 and -100 <= calc_angle(origin, (_x, _y)) <= 100:
         return True
-    if state != 3 and -2 <= _x <= 0 + lateral_roi_param and -0.75 * axial_roi_param <= _y <= 0.75:
+    if state != 3 and -2 <= -1*_y <= 0 + lateral_roi_param and -0.75 * axial_roi_param <= -1*_x <= 1.5:
         return True
     
     return False
