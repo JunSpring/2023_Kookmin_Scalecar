@@ -7,18 +7,19 @@ import cv2
 from vision_msgs.msg import Detection2DArray
 from vision_msgs.msg import ObjectHypothesisWithPose
 from fiducial_msgs.msg import FiducialTransformArray
-from std_msgs.msg import Float32
+from webot_examples.msg import marker_msg
 from cv_bridge import CvBridge
 
 class SignReceiver():
     def __init__(self):
         rospy.loginfo("Sign Object is Created")
         rospy.Subscriber("/fiducial_transforms", Detection2DArray, self.Callback)
-        self.pub = rospy.Publisher("/sign_pub", Float32, queue_size = 10)
+        self.pub = rospy.Publisher("/sign_pub", marker_msg, queue_size = 10)
 
     def Callback(self, data):
 
-        msg = data.detections[0].results[0].pose.pose.position.z
+        msg.id = data.detections[0].results[0].id
+        msg.distance = data.detections[0].results[0].pose.pose.position.z
         self.pub.publish(msg)
   
         rospy.loginfo(msg)
