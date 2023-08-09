@@ -45,6 +45,10 @@ from enums import SignNum
 # mission4_start = None       # mission4 시작시간기록용 변수
 # mission4_prev_time = 0
 
+Obstacles_callback_start = False
+sign_callback_start = True
+Yolo_Objects_callback_start = False
+
 state = 0
 
 circles = None
@@ -76,14 +80,16 @@ class Center():
 
         # ros가 실행되는 동안 publish_data 함수 반복실행
         while not rospy.is_shutdown():
-            self.excute_mission()
             # self.publish_data()
+            pass
 
     # 객체 검출 subscribe callback 함수
     def Obstacles_callback(self, data):
         global circles
 
         circles = data.circles
+
+        self.excute_mission()
 
     # 표지판 subscribe callback 함수
     def sign_callback(self, data):
@@ -101,6 +107,8 @@ class Center():
 
         sign = min_index
         sign_distance = min_distance
+
+        self.excute_mission()
 
     def Yolo_Objects_callback(self, data):
         global yolo
@@ -132,9 +140,9 @@ class Center():
             self.select_mission_number()
 
         else:
-            if state == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION or\
+            if state == (StateNum.SCHOOL_ZONE_SIGN_RECOGNITION or\
                         StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION or\
-                        StateNum.SCHOOL_ZONE_RESTART:
+                        StateNum.SCHOOL_ZONE_RESTART):
                 self.school_zone()
             
             elif state == StateNum.DYNAMIC_OBSTACLE:
@@ -191,8 +199,7 @@ class Center():
         return min_distance
     
     def normal_driving(self):
-        # rospy.loginfo("normal_driving")
-        pass
+        rospy.loginfo("normal_driving")
 
     # mission1 어린이보호구역 함수
     def school_zone(self):
@@ -217,7 +224,7 @@ class Center():
         rospy.loginfo("dynamic_object")
 
     # mission3 라바콘
-    def rubber_cone(self, mission_state, circles = None):
+    def rubber_cone(self):
         # global 변수
         global state
 
