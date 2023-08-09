@@ -53,6 +53,7 @@ sign = None
 sign_distance = None
 
 yolo = None
+yolo_size = None
 
 # ------------------------ class ------------------------
 class Center():
@@ -103,6 +104,7 @@ class Center():
 
     def Yolo_Objects_callback(self, data):
         global yolo
+        global yolo_size
 
         max_size = 0
         max_index = None
@@ -114,6 +116,7 @@ class Center():
                 max_index = yo.c
 
         yolo = max_index
+        yolo_size = max_size
 
     def calculate_size(self, x1, x2, y1, y2):
         width = abs(x2 - x1)
@@ -249,9 +252,6 @@ class Center():
         # publish data 대입
         publishing_data = center_msg()
         publishing_data.state = state
-        publishing_data.xwaypoint = self.xwaypoint
-        publishing_data.ywaypoint = self.ywaypoint
-
 
         # publish
         self.pub.publish(publishing_data)
