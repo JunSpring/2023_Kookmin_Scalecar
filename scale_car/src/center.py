@@ -8,7 +8,7 @@ import rospy
 import math
 
 from obstacle_detector.msg import Obstacles
-from scale_car.msg import lidar_msg
+from scale_car.msg import center_msg
 # from scale_car_yolo5.msg import Yolo_Objects
 from std_msgs.msg import Float32
 
@@ -53,14 +53,15 @@ sign = None
 sign_distance = None
 
 yolo = None
+yolo_size = None
 
 # ------------------------ class ------------------------
-class LidarReceiver():
+class Center():
     def __init__(self):
         rospy.loginfo("Center Object is Created")
 
         # publisher
-        self.pub = rospy.Publisher("/center_data", lidar_msg, queue_size=10)
+        self.pub = rospy.Publisher("/center_data", center_msg, queue_size=10)
         """
         Publish content
         int32 state (차량 미션 상태)
@@ -103,6 +104,7 @@ class LidarReceiver():
 
     def Yolo_Objects_callback(self, data):
         global yolo
+        global yolo_size
 
         max_size = 0
         max_index = None
@@ -114,6 +116,7 @@ class LidarReceiver():
                 max_index = yo.c
 
         yolo = max_index
+        yolo_size = max_size
 
     def calculate_size(self, x1, x2, y1, y2):
         width = abs(x2 - x1)
@@ -247,11 +250,8 @@ class LidarReceiver():
         global sign
 
         # publish data 대입
-        publishing_data = lidar_msg()
+        publishing_data = center_msg()
         publishing_data.state = state
-        publishing_data.xwaypoint = self.xwaypoint
-        publishing_data.ywaypoint = self.ywaypoint
-
 
         # publish
         self.pub.publish(publishing_data)
@@ -282,8 +282,8 @@ class LidarReceiver():
         
 # ------------------------ run ------------------------
 def run():
-    rospy.init_node("lidar_example")
-    new_class = LidarReceiver()
+    rospy.init_node("Center_Node")
+    new_class = Center()
     rospy.spin()
 
 # ------------------------ __name__ ------------------------
