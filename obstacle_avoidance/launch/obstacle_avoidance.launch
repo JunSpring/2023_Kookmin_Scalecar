@@ -1,0 +1,8 @@
+<launch>
+    <node pkg="obstacle_avoidance" type="main.py" name="obstacle_avoidance" output="screen" />
+
+    <param name="angle_range" type="int" value="100" />
+    <param name="gamma" type="double" value="0.01" />
+    <param name="d_max" type="double" value="1.0" />
+    <param name="sigma_param" type="double" value="50.0" />
+</launch>
