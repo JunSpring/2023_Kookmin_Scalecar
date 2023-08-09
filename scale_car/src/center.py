@@ -9,7 +9,7 @@ import math
 
 from obstacle_detector.msg import Obstacles
 from scale_car.msg import center_msg
-# from scale_car_yolo5.msg import Yolo_Objects
+from scale_car_yolov5.msg import Yolo_Objects
 from std_msgs.msg import Float32
 
 from enums import StateNum
@@ -72,7 +72,7 @@ class Center():
         # subscriber
         rospy.Subscriber("/raw_obstacles", Obstacles, self.Obstacles_callback)
         rospy.Subscriber("/sign_pub", Float32, self.sign_callback)
-        # rospy.Subscriber("/yolo5_pub", Yolo_Objects, self.Yolo_Objects_callback)
+        rospy.Subscriber("/yolov5_pub", Yolo_Objects, self.Yolo_Objects_callback)
 
         # ros가 실행되는 동안 publish_data 함수 반복실행
         while not rospy.is_shutdown():
@@ -191,7 +191,8 @@ class Center():
         return min_distance
     
     def normal_driving(self):
-        rospy.loginfo("normal_driving")
+        # rospy.loginfo("normal_driving")
+        pass
 
     # mission1 어린이보호구역 함수
     def school_zone(self):
