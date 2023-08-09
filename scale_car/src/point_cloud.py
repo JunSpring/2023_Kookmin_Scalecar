@@ -11,6 +11,8 @@ from scale_car.msg import lidar_msg
 
 import math
 
+from enums import StateNum
+
 # ------------------------ 전역변수 ------------------------
 # 좌우 ROI Parameter
 lateral_roi_param = 1
@@ -19,6 +21,9 @@ axial_roi_param = 0
 
 # 영점
 origin = (0, 0)
+
+# 미션 상태
+state = StateNum.NORMAL_DRIVING
 
 # ------------------------ class ------------------------
 class rpScanfReceiver:
@@ -44,13 +49,9 @@ class rpScanfReceiver:
     def lidar_callback(self, data):
         global lateral_roi_param
         global axial_roi_param
+        global state
 
-        if data.state == 3:
-            lateral_roi_param = 2
-            axial_roi_param = -0.25
-        else:
-            lateral_roi_param = 1
-            axial_roi_param = 0
+        state = data.state        
 
 def calc_axis_xy(_theta, _distance, _min_range, _max_range):
     if _min_range <= _distance <= _max_range:
@@ -63,12 +64,17 @@ def calc_axis_xy(_theta, _distance, _min_range, _max_range):
 def is_data(_x, _y):
     global lateral_roi_param
     global axial_roi_param
+    global state
 
     if (_x, _y) == (0, 0):
         return False
-    if  calc_distance(origin, (_x, _y)) <= 1 and -100 <= calc_angle(origin, (_x, _y)) <= 100:
+    if state == StateNum.RUBBERCON_DRIVING and\
+        calc_distance(origin, (_x, _y)) <= 1 and -100 <= calc_angle(origin, (_x, _y)) <= 100:
         return True
-
+    if state != StateNum.RUBBERCON_DRIVING and\
+        -2 <= _x <= 0 + lateral_roi_param and -0.75 * axial_roi_param <= _y <= 0.75:
+        return True
+    
     return False
 
 # ------------------------ test ------------------------
