@@ -27,7 +27,7 @@ state = 0
 class rpScanfReceiver:
     def __init__(self):
         self.lscan = rospy.Subscriber("/scan", LaserScan, self.callback)
-        rospy.Subscriber("/lidar_pub", lidar_msg, self.lidar_callback)
+        self.lp = rospy.Subscriber("/lidar_pub", lidar_msg, self.lidar_callback)
         self.pc_pub = rospy.Publisher("/pcl", PointCloud, queue_size=5)
  
     def callback(self, data):
@@ -49,7 +49,7 @@ class rpScanfReceiver:
         global axial_roi_param
         global state
 
-        state = data.state        
+        state = data.state
 
 def calc_axis_xy(_theta, _distance, _min_range, _max_range):
     if _min_range <= _distance <= _max_range:
@@ -66,7 +66,7 @@ def is_data(_x, _y):
 
     if (_x, _y) == (0, 0):
         return False
-    if state == 3 and calc_distance(origin, (_x, _y)) <= 1 and -100 <= calc_angle(origin, (_x, _y)) <= 100:
+    if state == 3 and calc_distance(origin, (_x, _y)) <= 1 and -100 <= calc_angle(origin, (-1*_x, _y)) <= 100:
         return True
     if state != 3 and -2 <= -1*_y <= 0 + lateral_roi_param and -0.75 * axial_roi_param <= -1*_x <= 1.5:
         return True
@@ -92,7 +92,7 @@ def calc_angle(point1, point2):
     x2, y2 = point2
 
     # Lidar X-axis transformation
-    x1, x2 = -x1, -x2
+    # x1, x2 = -x1, -x2
 
     # Calculate the differences in x and y coordinates
     dx = x2 - x1
