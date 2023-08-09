@@ -69,10 +69,10 @@ def is_data(_x, _y):
     if (_x, _y) == (0, 0):
         return False
     if state == StateNum.RUBBERCON_DRIVING and\
-        calc_distance(origin, (_x, _y)) <= 1 and -100 <= calc_angle(origin, (_x, _y)) <= 100:
+        calc_distance(origin, (_x, _y)) <= 1 and -100 <= calc_angle(origin, (-1*_x, _y)) <= 100:
         return True
     if state != StateNum.RUBBERCON_DRIVING and\
-        -2 <= _x <= 0 + lateral_roi_param and -0.75 * axial_roi_param <= _y <= 0.75:
+        -2 <= -1*_y <= 0 + lateral_roi_param and -0.75 * axial_roi_param <= -1*_x <= 1.5:
         return True
     
     return False
