@@ -4,7 +4,7 @@
 import rospy
 import math
 from ackermann_msgs.msg import AckermannDriveStamped
-from lane_detection.msg import detected_msg
+from lane_detection.msg import lane_msg
 from std_msgs.msg import Int32
 from webot_examples.msg import lidar_msg
 
@@ -17,7 +17,7 @@ class Controller:
     misson=0
     
     def __init__(self):
-        rospy.Subscriber("/lane_pub", detected_msg, self.lane_callback)
+        rospy.Subscriber("/lane_pub", lane_msg, self.lane_callback)
         rospy.Subscriber("/lidar_pub", lidar_msg, self.missonNum)
 
         # -------------------------------------------------------------------------------
@@ -41,8 +41,8 @@ class Controller:
         self.coneWaypoint_y = msg.ywaypoint #라바콘 웨이포인트 y좌표
 
     def lane_callback(self, msg):   #차선 주행 콜백
-        self.laneWaypoint_x = msg.xdetected #웨이포인트 x좌표
-        self.laneWaypoint_y = msg.ydetected #웨이포인트 y좌표
+        self.laneWaypoint_x = msg.lane_x #웨이포인트 x좌표
+        self.laneWaypoint_y = msg.lane_y #웨이포인트 y좌표
 
     # -------------------------------------------------------------------------------
     def avoid_angle_callback(self, msg):
@@ -93,7 +93,8 @@ class Controller:
         limitedSpeed = 2.5 * 0.16   #제한 속도
 
         if self.misson == 0:    #평시주행
-            speed = usualSpeed
+            speed = usualSpeed * 0.8
+            angle = angle * 0.6
         elif self.misson == 1:  #어린이보호구역
             speed = limitedSpeed
         elif self.misson == 2:  #동적장애물

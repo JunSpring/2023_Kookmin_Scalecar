@@ -3,7 +3,7 @@ import os
 import rospy
 import cv2
 import numpy as np
-from std_msgs.msg import Int32
+from std_msgs.msg import Int64
 from sensor_msgs.msg import CompressedImage
 from lane_detection.msg import lane_msg
 from cv_bridge import CvBridge
@@ -43,8 +43,8 @@ class CameraReceiver():
     def __init__(self):
         rospy.loginfo("Camera Receiver Object is Created")
         rospy.Subscriber("/usb_cam/image_rect_color/compressed", CompressedImage, self.Callback)
-        rospy.Subscriber("/whatLane", Int32, self.state_Callback)
-        self.pub = rospy.Publisher("/lane_pub", detected_msg, queue_size = 10)
+        rospy.Subscriber("/whatLane", Int64, self.state_Callback)
+        self.pub = rospy.Publisher("/lane_pub", lane_msg, queue_size = 10)
 
     def state_Callback(self, msg):
         self.state = msg.data
@@ -60,7 +60,7 @@ class CameraReceiver():
         warp_img, M, Minv = warp_image(image, warp_src, warp_dist, (warp_img_w, warp_img_h))
         left_fit, right_fit, avex, avey, leftx_current, lefty, rightx_current, righty = warp_process_image(state, warp_img)
         lane_img = draw_lane(image, warp_img, Minv, left_fit, right_fit, avex, avey, leftx_current, lefty, rightx_current, righty)
-        msg = detected_msg()
+        msg = lane_msg()
         msg.lane_x = avex
         msg.lane_y = avey
         self.pub.publish(msg)
@@ -93,7 +93,7 @@ def warp_process_image(state, img):
 
     lane = cv2.inRange(hsv, lower_white, upper_white)
 
-    cv2.imshow("lane", lane)
+    cv2.imshow("w", lane)
    
     cv2.waitKey(1)
 

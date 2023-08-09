@@ -64,7 +64,7 @@ class YoloV5_ROS():
         cv2.namedWindow('result', cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)  # allow window resize (Linux)
         count += 1
 
-        if count % 10 == 0:
+        if count % 3 == 0:
             im0s = img
 
             # Run inference
