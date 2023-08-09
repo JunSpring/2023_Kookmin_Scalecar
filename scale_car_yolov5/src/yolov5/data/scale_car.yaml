@@ -1,0 +1,8 @@
+names:
+  0: static_obstacle
+  1: dynamic_obstacle
+  2: rubber_cone
+  3: crosswalk
+nc: 4
+train: /home/a/Dataset/scale_car_dataset/scale_car_train3.txt
+val: /home/a/Dataset/scale_car_dataset/scale_car_val3.txt
