@@ -9,7 +9,7 @@ import math
 
 from obstacle_detector.msg import Obstacles
 from scale_car.msg import lidar_msg
-from scale_car_yolo5.msg import Yolo_Objects
+# from scale_car_yolo5.msg import Yolo_Objects
 from std_msgs.msg import Float32
 
 from enums import StateNum
@@ -71,7 +71,7 @@ class LidarReceiver():
         # subscriber
         rospy.Subscriber("/raw_obstacles", Obstacles, self.Obstacles_callback)
         rospy.Subscriber("/sign_pub", Float32, self.sign_callback)
-        rospy.Subscriber("/yolo5_pub", Yolo_Objects, self.Yolo_Objects_callback)
+        # rospy.Subscriber("/yolo5_pub", Yolo_Objects, self.Yolo_Objects_callback)
 
         # ros가 실행되는 동안 publish_data 함수 반복실행
         while not rospy.is_shutdown():
