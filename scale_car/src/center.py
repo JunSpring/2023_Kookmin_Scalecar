@@ -14,7 +14,6 @@ from std_msgs.msg import Float32
 
 from enums import StateNum
 from enums import YoloNum
-from enums import signNum
 
 # ------------------------ 전역변수 ------------------------
 # # 이전 state 변수
@@ -49,7 +48,7 @@ Obstacles_callback_start = False
 sign_callback_start = True
 Yolo_Objects_callback_start = False
 
-prev_state = 0
+prev_state = -1
 state = 0
 
 circles = None
@@ -207,7 +206,7 @@ class Center():
         now = rospy.Time.now().to_sec()
 
         if state == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION:
-            if yolo == YoloNum.SCHOOL_ZONE and yolo_size > 100:
+            if yolo == YoloNum.SCHOOL_ZONE and yolo_size > 400:
                 state == StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION
 
         elif state == StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION:
@@ -221,7 +220,7 @@ class Center():
                 yolo_size = None
 
         elif state == StateNum.SCHOOL_ZONE_RESTART:
-            if yolo == YoloNum.SCHOOL_ZONE and yolo_size > 100:
+            if yolo == YoloNum.SCHOOL_ZONE and yolo_size > 400:
                 state == StateNum.NORMAL_DRIVING
 
     # mission2 동적장애물 함수
