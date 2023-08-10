@@ -44,17 +44,17 @@ class CameraReceiver():
         rospy.loginfo("Camera Receiver Object is Created")
         rospy.Subscriber("/usb_cam/image_rect_color/compressed", CompressedImage, self.Callback)
         rospy.Subscriber("/whatLane", Int64, self.state_Callback)
-        self.pub = rospy.Publisher("/lane_pub", lane_msg, queue_size = 10)
+        self.pub = rospy.Publisher("/lane_pub", lane_msg, queue_size=10)
 
     def state_Callback(self, msg):
-        self.state = msg.data
-        print("1차로" if (self.state == -1) else "2차로")
+        self.state = -msg.data
+        print("1차로" if (self.state == 1) else "2차로")
 
     def Callback(self, data):
         global Width, Height, cap
 
         bridge = CvBridge()
-        image = bridge.compressed_imgmsg_to_cv2(data,"bgr8")
+        image = bridge.compressed_imgmsg_to_cv2(data, "bgr8")
 
         state = self.state
         warp_img, M, Minv = warp_image(image, warp_src, warp_dist, (warp_img_w, warp_img_h))
@@ -85,7 +85,7 @@ def warp_process_image(state, img):
     global minpix 
     global lane_bin_th 
 
-    blur = cv2.GaussianBlur(img,(5, 5), 0) 
+    blur = cv2.GaussianBlur(img, (5, 5), 0) 
     hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
 
     lower_white = np.array([0, 0, 180])
@@ -97,12 +97,12 @@ def warp_process_image(state, img):
    
     cv2.waitKey(1)
 
-    histogram = np.sum(lane[lane.shape[0]//2:,:], axis=0) 
+    histogram = np.sum(lane[lane.shape[0]//2:, :], axis=0) 
     midpoint = np.int(histogram.shape[0]/2) 
     leftx_current = np.argmax(histogram[:midpoint]) 
     rightx_current = np.argmax(histogram[midpoint:]) + midpoint 
 
-    window_height = np.int(lane.shape[0]/nwindows) 
+    window_height = np.int(lane.shape[0] / nwindows) 
     nz = lane.nonzero() 
 
     left_lane_inds = [] 
@@ -122,11 +122,11 @@ def warp_process_image(state, img):
         win_xrl = rightx_current - margin 
         win_xrh = rightx_current + margin
 
-        cv2.rectangle(out_img, (win_xll, win_yl), (win_xlh,win_yh), (0,255,0), 2) 
-        cv2.rectangle(out_img, (win_xrl, win_yl), (win_xrh,win_yh), (0,255,0), 2) 
+        cv2.rectangle(out_img, (win_xll, win_yl), (win_xlh, win_yh), (0, 255, 0), 2) 
+        cv2.rectangle(out_img, (win_xrl, win_yl), (win_xrh, win_yh), (0, 255, 0), 2) 
      
-        good_left_inds = ((nz[0] >= win_yl)&(nz[0] < win_yh)&(nz[1] >= win_xll)&(nz[1] < win_xlh)).nonzero()[0] 
-        good_right_inds = ((nz[0] >= win_yl)&(nz[0] < win_yh)&(nz[1] >= win_xrl)&(nz[1] < win_xrh)).nonzero()[0] 
+        good_left_inds = ((nz[0] >= win_yl) & (nz[0] < win_yh) & (nz[1] >= win_xll) & (nz[1] < win_xlh)).nonzero()[0] 
+        good_right_inds = ((nz[0] >= win_yl) & (nz[0] < win_yh) & (nz[1] >= win_xrl) & (nz[1] < win_xrh)).nonzero()[0] 
 
         left_lane_inds.append(good_left_inds) 
         right_lane_inds.append(good_right_inds)
@@ -136,13 +136,13 @@ def warp_process_image(state, img):
         if len(good_left_inds) > minpix and state == 1:# 왼쪽 주행 중
             leftx_current = np.int(np.mean(nz[1][good_left_inds])) 
             lefty = np.int(np.mean(nz[0][good_left_inds])) 
-            rightx_current = leftx_current + 156
+            rightx_current = leftx_current+156
             righty = lefty
 
         if len(good_right_inds) > minpix and state == -1: # 오른쪽 주행 중 
             rightx_current = np.int(np.mean(nz[1][good_right_inds])) 
             righty = np.int(np.mean(nz[0][good_right_inds]))
-            leftx_current = rightx_current - 156 
+            leftx_current = rightx_current-156 
             lefty = righty
 
 
@@ -155,33 +155,27 @@ def warp_process_image(state, img):
     left_lane_inds = np.concatenate(left_lane_inds) 
     right_lane_inds = np.concatenate(right_lane_inds)
     
-    lfit = np.polyfit(np.array(ly),np.array(lx),2) 
-    rfit = np.polyfit(np.array(ry),np.array(rx),2)
+    lfit = np.polyfit(np.array(ly), np.array(lx), 2) 
+    rfit = np.polyfit(np.array(ry), np.array(rx), 2)
     
     out_img[nz[0][left_lane_inds], nz[1][left_lane_inds]] = [255, 0, 0] 
     out_img[nz[0][right_lane_inds] , nz[1][right_lane_inds]] = [0, 0, 255]
 
     #if leftx_current == 0 and lefty == 5:
-    #    leftx_current = rightx_current - 156
+    #    leftx_current = rightx_current-156
     #    lefty = righty
 
     #elif rightx_current == 0 and righty == 5:
-    #    rightx_current = leftx_current + 156
+    #    rightx_current = leftx_current+156
     #    righty = lefty
-
-    # if state == 0:# 왼쪽 주행 중
-    #     rightx_current = leftx_current + 80
-    
-    # elif state == 1: # 오른쪽 주행 중
-    #     leftx_current = rightx_current - 80
 
     avex = (leftx_current + rightx_current)//2
     avey = (lefty + righty)//2
 
-    cv2.line(out_img,(leftx_current, lefty), (rightx_current, righty), (255, 0, 255), 2)
+    cv2.line(out_img, (leftx_current, lefty), (rightx_current, righty), (255, 0, 255), 2)
     cv2.circle(out_img,(avex, avey), 5, (0, 255, 255), -1)
-    cv2.circle(out_img, (leftx_current, lefty), 5, (0,0,255), -1)
-    cv2.circle(out_img, (rightx_current, righty), 5, (255,0,0), -1)
+    cv2.circle(out_img, (leftx_current, lefty), 5, (0, 0, 255), -1)
+    cv2.circle(out_img, (rightx_current, righty), 5, (255, 0, 0), -1)
 
     cv2.imshow("viewer", out_img)
 
@@ -190,25 +184,24 @@ def warp_process_image(state, img):
 def draw_lane(image, warp_img, Minv, left_fit, right_fit, avex, avey, leftx_current, lefty, rightx_current, righty):
     global Width, Height
     yMax = warp_img.shape[0]
-    ploty = np.linspace(0, yMax - 1, yMax)
+    ploty = np.linspace(0, yMax-1, yMax)
     color_warp = np.zeros_like(warp_img).astype(np.uint8)
     
-    left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-    right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+    left_fitx = left_fit[0] * ploty**2 + left_fit[1] * ploty + left_fit[2]
+    right_fitx = right_fit[0] * ploty**2 + right_fit[1] * ploty + right_fit[2]
     
     pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
     pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))]) 
     pts = np.hstack((pts_left, pts_right))
     
 
-    cv2.circle(color_warp,(avex, avey), 10, (0, 0, 255), -1)
+    cv2.circle(color_warp, (avex, avey), 10, (0, 0, 255), -1)
     newwarp = cv2.warpPerspective(color_warp, Minv, (Width, Height))
 
     return cv2.addWeighted(image, 1, newwarp, 0.3, 0)
 
 def run():
     rospy.init_node("ld_pub")
-    #rate = rospy.Rate(1)
     cam = CameraReceiver()
     rospy.spin()
 
