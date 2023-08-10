@@ -31,7 +31,7 @@ count = 0
 
 class YoloV5_ROS():
     def __init__(self):
-        rospy.Subscriber("/usb_cam/image_raw/compressed", CompressedImage, self.Callback)
+        rospy.Subscriber("/usb_cam/image_raw", Image, self.Callback)
         self.pub = rospy.Publisher("yolov5_pub", data_class=Yolo_Objects, queue_size=10)
 
         self.source = rospy.get_param("~source")
@@ -57,7 +57,7 @@ class YoloV5_ROS():
     def Callback(self, data): 
         global count
         bridge = CvBridge()
-        img = bridge.compressed_imgmsg_to_cv2(data, "bgr8")
+        img = bridge.imgmsg_to_cv2(data, "bgr8")
         
         c = -1 # class (-1: 물체 없음)
 
