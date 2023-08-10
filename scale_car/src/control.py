@@ -8,21 +8,20 @@ from lane_detection.msg import lane_msg
 from std_msgs.msg import Int32
 from scale_car.msg import center_msg
 
+from enums import StateNum
+
 # -------------------------------------------------------------------------------
 from obstacle_avoidance.msg import avoid_angle
 # -------------------------------------------------------------------------------
 
 class Controller:
-    lane=1  #-1 = 1차선, 1 = 2차선
+    lane = -1  #-1 = 1차선, 1 = 2차선
     mission=0
     
     def __init__(self):
         rospy.Subscriber("/lane_pub", lane_msg, self.lane_callback)
         rospy.Subscriber("/center_data", center_msg, self.missionNum)
-
-        # -------------------------------------------------------------------------------
         rospy.Subscriber("/avoid_angle", avoid_angle, self.avoid_angle_callback)
-        # -------------------------------------------------------------------------------
 
         self.lane_pub=rospy.Publisher('/whatLane',Int32,queue_size=1)
         self.drive_pub = rospy.Publisher("high_level/ackermann_cmd_mux/input/nav_0", AckermannDriveStamped, queue_size=1)
@@ -39,13 +38,11 @@ class Controller:
         self.mission=msg.state   #미션 번호
 
     def lane_callback(self, msg):   #차선 주행 콜백
-        self.laneWaypoint_x = msg.xdetected #웨이포인트 x좌표
-        self.laneWaypoint_y = msg.ydetected #웨이포인트 y좌표
+        self.laneWaypoint_x = msg.lane_x #웨이포인트 x좌표
+        self.laneWaypoint_y = msg.lane_y #웨이포인트 y좌표
 
-    # -------------------------------------------------------------------------------
     def avoid_angle_callback(self, msg):
         self.avoid_angle = msg.angle
-    # -------------------------------------------------------------------------------
 
     def publish_data(self): #전체 퍼블리싱
         str = f"speed : {self.driveInfo.drive.speed}\tangle : {self.driveInfo.drive.steering_angle}"
@@ -65,10 +62,8 @@ class Controller:
         angle_parameter = 3
 
         if self.mission == 3:  #라바콘
-            self.lane=1
-            '''좌표 변환'''
-            x = self.coneWaypoint_y
-            y = -self.coneWaypoint_x
+            self.lane = 1
+            angle = -1 * self.avoid_angle
         else:
             '''좌표 기준점 평행이동'''
             x = self.laneWaypoint_x - 160
@@ -79,36 +74,34 @@ class Controller:
         except:
             angle = 0.0
 
-        # -------------------------------------------------------------------------------
-        if self.mission == 3:
-            angle = -1 * self.avoid_angle
-        # -------------------------------------------------------------------------------
-
         '''테스트용 각도'''
         # angle = 0.0
         # (2.5 - abs(angle) / 0.34 / angle_parameter * 2.5) #조향각 연동 속도
         usualSpeed = 2.5 * 0.5  #일반 속도
         limitedSpeed = 2.5 * 0.16   #제한 속도
 
-        if self.mission == 0:    #평시주행
-            speed = usualSpeed * 0.8 #0.8
-            angle = 0 # angle * 0.6
-        elif self.mission == 1:  #어린이보호구역
-            speed = limitedSpeed
-        elif self.mission == 2:  #동적장애물
-            speed = 0.0
-        
-        # -------------------------------------------------------------------------------
-        elif self.mission == 3:  #라바콘 회피주행
-            angle = angle * 0.025 #0.9
-            speed = usualSpeed * 1.0    #일반 속도의 60%
-        # -------------------------------------------------------------------------------
+        if self.mission == StateNum.NORMAL_DRIVING:    #평시주행
+            speed = usualSpeed * 0.8
+            angle = angle * 0.6
 
-        elif self.mission == 6:  #정적장애물
+        elif self.mission == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION:  #어린이보호구역
+            speed = limitedSpeed
+        elif self.mission == StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION:
+            self.stop()
+        elif self.mission == StateNum.SCHOOL_ZONE_RESTART:
+            speed = limitedSpeed
+
+        elif self.mission == StateNum.DYNAMIC_OBSTACLE:  #동적장애물
+            self.stop()
+        
+        elif self.mission == StateNum.RUBBERCON_DRIVING:  #라바콘 회피주행
+            angle = angle * 0.025
+            speed = usualSpeed * 0.475
+
+        elif self.mission == StateNum.STATIC_OBSTACLE:  #정적장애물
             self.doSnake()
             speed = usualSpeed
-        elif self.mission == 5:  #미션 판단 주행
-            speed = 2.5 * 0.1
+
         return angle, speed
     
     def likeSnake(self):
@@ -139,11 +132,11 @@ class Controller:
 
         self.lane = -self.lane  #차로 상태 변경
 
-        for i in range(32): #0.32초 동안 반대 조향
+        for i in range(40): #0.32초 동안 반대 조향
             self.likeSnake()
             rate.sleep()
 
-        self.mission=0   #미션 상태 평상시로 복귀
+        # self.mission = 0   #미션 상태 평상시로 복귀
 
     def follow_lane(self):
         self.driveInfo.header.stamp = rospy.Time.now()

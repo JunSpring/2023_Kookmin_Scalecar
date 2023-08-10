@@ -14,7 +14,6 @@ from std_msgs.msg import Float32
 
 from enums import StateNum
 from enums import YoloNum
-from enums import SignNum
 
 # ------------------------ 전역변수 ------------------------
 # # 이전 state 변수
@@ -49,12 +48,11 @@ Obstacles_callback_start = False
 sign_callback_start = True
 Yolo_Objects_callback_start = False
 
-prev_state = 0
+prev_state = -1
 state = 0
 
 circles = None
 
-sign = None
 sign_distance = None
 
 yolo = None
@@ -83,7 +81,8 @@ class Center():
 
         # ros가 실행되는 동안 publish_data 함수 반복실행
         while not rospy.is_shutdown():
-            self.publish_data()
+            # self.publish_data()
+            pass
 
     # 객체 검출 subscribe callback 함수
     def Obstacles_callback(self, data):
@@ -97,19 +96,9 @@ class Center():
     # 표지판 subscribe callback 함수
     def sign_callback(self, data):
         # global 변수
-        global sign
         global sign_distance
 
-        min_index = None
-        min_distance = 100
-
-        for so in data.sign_objects:
-            if so.distance < min_distance:
-                min_index = so.c
-                min_distance = so.distance
-
-        sign = min_index
-        sign_distance = min_distance
+        sign_distance = data.data
 
         self.excute_mission()
 
@@ -161,14 +150,12 @@ class Center():
     def select_mission_number(self):
         # global 변수
         global state
-        global sign
+        global sign_distance
+        global yolo
+        global yolo_size
 
-        if sign is not None:
+        if sign_distance < 100:
             state = StateNum.SCHOOL_ZONE_SIGN_RECOGNITION
-        elif sign == SignNum.FIRST and sign_distance < 100:
-            state = StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION
-        elif sign == SignNum.SECOND and sign_distance < 100:
-            state = StateNum.SCHOOL_ZONE_RESTART
 
         # elif yolo == YoloNum.DYNAMIC_OBSTACLE and self.nearest_circle_distance() < 100:
         #     state = StateNum.DYNAMIC_OBSTACLE
@@ -176,7 +163,7 @@ class Center():
         # elif False and self.nearest_circle_distance() < 100:
         #     state = StateNum.RUBBERCON_DRIVING
 
-        elif yolo == YoloNum.RUBBERCONE and self.nearest_circle_distance(-0.1, 0.1) < 1.5:
+        elif True and self.nearest_circle_distance(-0.1, 0.1) < 1.5:
             state = StateNum.STATIC_OBSTACLE
 
         else:
@@ -202,6 +189,8 @@ class Center():
             if distance_to_center < min_distance:
                 min_distance = distance_to_center
 
+        print(min_distance)
+
         return min_distance
     
     def normal_driving(self):
@@ -210,17 +199,29 @@ class Center():
     # mission1 어린이보호구역 함수
     def school_zone(self):
         global state
+        global yolo
+        global yolo_size
+        global start
 
-        # rospy.loginfo("school_zone")
+        now = rospy.Time.now().to_sec()
 
         if state == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION:
-            pass
+            if yolo == YoloNum.SCHOOL_ZONE and yolo_size > 400:
+                state == StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION
 
         elif state == StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION:
-            pass
+            if start is None:
+                start = now
+
+            elif start and now - start > 5.0:
+                start = None
+                state = StateNum.SCHOOL_ZONE_RESTART
+                yolo = None
+                yolo_size = None
 
         elif state == StateNum.SCHOOL_ZONE_RESTART:
-            pass
+            if yolo == YoloNum.SCHOOL_ZONE and yolo_size > 400:
+                state == StateNum.NORMAL_DRIVING
 
     # mission2 동적장애물 함수
     def dynamic_object(self):
@@ -241,6 +242,8 @@ class Center():
         # global 변수
         global state
         global start
+        global yolo
+        global yolo_size
 
         now = rospy.Time.now().to_sec()
 
@@ -250,6 +253,8 @@ class Center():
         elif start and now - start > 1.75:
             start = None
             state = StateNum.NORMAL_DRIVING
+            yolo = None
+            yolo_size = None
 
     # 공통되는 변수를 초기화하는 함수
     def end_mission(self):
@@ -269,7 +274,6 @@ class Center():
         global start
         global state
         global prev_state
-        global sign
 
         # publish data 대입
         publishing_data = center_msg()
@@ -287,7 +291,7 @@ class Center():
     def loginfo(self, data):
         if data == StateNum.NORMAL_DRIVING:
             str = "normal driving"
-        elif data == (StateNum.SCHOOL_ZONE_SIGN_RECOGNITION or\
+        elif data == (StateNum.SCHOOL_ZONE_sign_RECOGNITION or\
                     StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION or\
                     StateNum.SCHOOL_ZONE_RESTART):
             str = "school zone"
