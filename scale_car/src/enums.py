@@ -13,6 +13,7 @@ class YoloNum(IntEnum):
     STATIC_OBSTACLE                     = 0
     DYNAMIC_OBSTACLE                    = 1
     RUBBERCONE                          = 2
+    SCHOOL_ZONE                         = 3
 
 class SignNum(IntEnum):
     FIRST                               = 0
