@@ -4,9 +4,9 @@
 import rospy
 import math
 from ackermann_msgs.msg import AckermannDriveStamped
-from lane_detection.msg import detected_msg
+from lane_detection.msg import lane_msg
 from std_msgs.msg import Int32
-from webot_examples.msg import lidar_msg
+from scale_car.msg import center_msg
 
 # -------------------------------------------------------------------------------
 from obstacle_avoidance.msg import avoid_angle
@@ -14,11 +14,11 @@ from obstacle_avoidance.msg import avoid_angle
 
 class Controller:
     lane=1  #-1 = 1차선, 1 = 2차선
-    misson=0
+    mission=0
     
     def __init__(self):
-        rospy.Subscriber("/lane_pub", detected_msg, self.lane_callback)
-        rospy.Subscriber("/lidar_pub", lidar_msg, self.missonNum)
+        rospy.Subscriber("/lane_pub", lane_msg, self.lane_callback)
+        rospy.Subscriber("/center_data", center_msg, self.missionNum)
 
         # -------------------------------------------------------------------------------
         rospy.Subscriber("/avoid_angle", avoid_angle, self.avoid_angle_callback)
@@ -35,10 +35,8 @@ class Controller:
         self.coneWaypoint_y = 0.0
         self.avoid_angle = 0.0
     
-    def missonNum(self, msg):   #미션 번호 받기
-        self.misson=msg.state   #미션 번호
-        self.coneWaypoint_x = msg.xwaypoint #라바콘 웨이포인트 x좌표
-        self.coneWaypoint_y = msg.ywaypoint #라바콘 웨이포인트 y좌표
+    def missionNum(self, msg):   #미션 번호 받기
+        self.mission=msg.state   #미션 번호
 
     def lane_callback(self, msg):   #차선 주행 콜백
         self.laneWaypoint_x = msg.xdetected #웨이포인트 x좌표
@@ -52,7 +50,7 @@ class Controller:
     def publish_data(self): #전체 퍼블리싱
         str = f"speed : {self.driveInfo.drive.speed}\tangle : {self.driveInfo.drive.steering_angle}"
         rospy.loginfo(str)
-        self.driveInfo.drive.steering_angle -= 0.02  #조향각 오프셋
+        self.driveInfo.drive.steering_angle -= 0.03  #조향각 오프셋
         self.drive_pub.publish(self.driveInfo)  #주행 정보 퍼블리싱
         self.lane_pub.publish(self.lane)        #차로 정보 퍼블리싱
         
@@ -66,7 +64,7 @@ class Controller:
     def calc_angle_speed(self):
         angle_parameter = 3
 
-        if self.misson == 3:  #라바콘
+        if self.mission == 3:  #라바콘
             self.lane=1
             '''좌표 변환'''
             x = self.coneWaypoint_y
@@ -82,7 +80,7 @@ class Controller:
             angle = 0.0
 
         # -------------------------------------------------------------------------------
-        if self.misson == 3:
+        if self.mission == 3:
             angle = -1 * self.avoid_angle
         # -------------------------------------------------------------------------------
 
@@ -92,23 +90,24 @@ class Controller:
         usualSpeed = 2.5 * 0.5  #일반 속도
         limitedSpeed = 2.5 * 0.16   #제한 속도
 
-        if self.misson == 0:    #평시주행
-            speed = usualSpeed
-        elif self.misson == 1:  #어린이보호구역
+        if self.mission == 0:    #평시주행
+            speed = usualSpeed * 0.8 #0.8
+            angle = 0 # angle * 0.6
+        elif self.mission == 1:  #어린이보호구역
             speed = limitedSpeed
-        elif self.misson == 2:  #동적장애물
+        elif self.mission == 2:  #동적장애물
             speed = 0.0
         
         # -------------------------------------------------------------------------------
-        elif self.misson == 3:  #라바콘 회피주행
+        elif self.mission == 3:  #라바콘 회피주행
             angle = angle * 0.025 #0.9
             speed = usualSpeed * 1.0    #일반 속도의 60%
         # -------------------------------------------------------------------------------
 
-        elif self.misson == 4:  #정적장애물
+        elif self.mission == 6:  #정적장애물
             self.doSnake()
             speed = usualSpeed
-        elif self.misson == 5:  #미션 판단 주행
+        elif self.mission == 5:  #미션 판단 주행
             speed = 2.5 * 0.1
         return angle, speed
     
@@ -144,7 +143,7 @@ class Controller:
             self.likeSnake()
             rate.sleep()
 
-        self.misson=0   #미션 상태 평상시로 복귀
+        self.mission=0   #미션 상태 평상시로 복귀
 
     def follow_lane(self):
         self.driveInfo.header.stamp = rospy.Time.now()

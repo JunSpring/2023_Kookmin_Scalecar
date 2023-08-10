@@ -49,6 +49,7 @@ Obstacles_callback_start = False
 sign_callback_start = True
 Yolo_Objects_callback_start = False
 
+prev_state = 0
 state = 0
 
 circles = None
@@ -58,6 +59,8 @@ sign_distance = None
 
 yolo = None
 yolo_size = None
+
+start = None
 
 # ------------------------ class ------------------------
 class Center():
@@ -80,8 +83,7 @@ class Center():
 
         # ros가 실행되는 동안 publish_data 함수 반복실행
         while not rospy.is_shutdown():
-            # self.publish_data()
-            pass
+            self.publish_data()
 
     # 객체 검출 subscribe callback 함수
     def Obstacles_callback(self, data):
@@ -90,6 +92,7 @@ class Center():
         circles = data.circles
 
         self.excute_mission()
+        # rospy.loginfo("%f",self.nearest_circle_distance())
 
     # 표지판 subscribe callback 함수
     def sign_callback(self, data):
@@ -167,20 +170,20 @@ class Center():
         elif sign == SignNum.SECOND and sign_distance < 100:
             state = StateNum.SCHOOL_ZONE_RESTART
 
-        elif yolo == YoloNum.DYNAMIC_OBSTACLE and self.nearest_circle_distance() < 100:
-            state = StateNum.DYNAMIC_OBSTACLE
+        # elif yolo == YoloNum.DYNAMIC_OBSTACLE and self.nearest_circle_distance() < 100:
+        #     state = StateNum.DYNAMIC_OBSTACLE
 
-        elif yolo == YoloNum.RUBBERCONE and self.nearest_circle_distance() < 100:
-            state = StateNum.RUBBERCON_DRIVING
+        # elif False and self.nearest_circle_distance() < 100:
+        #     state = StateNum.RUBBERCON_DRIVING
 
-        elif yolo == YoloNum.STATIC_OBSTACLE and self.nearest_circle_distance() < 100:
+        elif yolo == YoloNum.RUBBERCONE and self.nearest_circle_distance(-0.1, 0.1) < 1.5:
             state = StateNum.STATIC_OBSTACLE
 
         else:
             state == StateNum.NORMAL_DRIVING
 
     # (0, 0) 위치로부터 가장 가까운 원의 중심점까지의 거리를 반환하는 함수
-    def nearest_circle_distance(self):
+    def nearest_circle_distance(self, left, right):
         global circles
 
         min_distance = float('inf') # 처음에는 무한대로 설정
@@ -188,6 +191,9 @@ class Center():
         for circle in circles:
             center_x = circle.center.x
             center_y = circle.center.y
+
+            if not left <= center_y <= right:
+                continue
 
             # (0, 0) 위치와 중심점 간의 거리 계산
             distance_to_center = math.sqrt(center_x**2 + center_y**2)
@@ -199,13 +205,13 @@ class Center():
         return min_distance
     
     def normal_driving(self):
-        rospy.loginfo("normal_driving")
+        pass
 
     # mission1 어린이보호구역 함수
     def school_zone(self):
         global state
 
-        rospy.loginfo("school_zone")
+        # rospy.loginfo("school_zone")
 
         if state == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION:
             pass
@@ -221,21 +227,29 @@ class Center():
         # global 변수
         global state
 
-        rospy.loginfo("dynamic_object")
+        # rospy.loginfo("dynamic_object")
 
     # mission3 라바콘
     def rubber_cone(self):
         # global 변수
         global state
 
-        rospy.loginfo("rubber_cone")
+        # rospy.loginfo("rubber_cone")
 
     # mission4 정적장애물 함수
-    def static_object(self, circles):
+    def static_object(self):
         # global 변수
         global state
+        global start
 
-        rospy.loginfo("static_object")
+        now = rospy.Time.now().to_sec()
+
+        if start is None:
+            start = now
+
+        elif start and now - start > 1.75:
+            start = None
+            state = StateNum.NORMAL_DRIVING
 
     # 공통되는 변수를 초기화하는 함수
     def end_mission(self):
@@ -267,24 +281,22 @@ class Center():
         # rospy.loginfo
         if prev_state != state:
             self.loginfo(state)
-        
-        # if state == 5:
-        #     rospy.loginfo(mission2_count)
+
         prev_state = state
 
     def loginfo(self, data):
-        if data == 0:
-            str = "평시주행"
-        elif data == 1:
-            str = "어린이 보호구역"
-        elif data == 2:
-            str = "동적 장애물"
-        elif data == 3:
-            str = "라바콘"
-        elif data == 4:
-            str = "정적 장애물"
-        elif data == 5:
-            str = "판단중"
+        if data == StateNum.NORMAL_DRIVING:
+            str = "normal driving"
+        elif data == (StateNum.SCHOOL_ZONE_SIGN_RECOGNITION or\
+                    StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION or\
+                    StateNum.SCHOOL_ZONE_RESTART):
+            str = "school zone"
+        elif data == StateNum.DYNAMIC_OBSTACLE:
+            str = "dynamic object"
+        elif data == StateNum.RUBBERCON_DRIVING:
+            str = "rubber cone"
+        elif data == StateNum.STATIC_OBSTACLE:
+            str = "static object"
 
         rospy.loginfo(str)
         

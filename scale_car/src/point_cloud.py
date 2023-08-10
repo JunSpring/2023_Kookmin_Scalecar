@@ -15,7 +15,7 @@ from enums import StateNum
 
 # ------------------------ 전역변수 ------------------------
 # 좌우 ROI Parameter
-lateral_roi_param = 1
+lateral_roi_param = 0.5
 # 앞뒤 ROI Parameter
 axial_roi_param = 0
 
@@ -72,7 +72,7 @@ def is_data(_x, _y):
         calc_distance(origin, (_x, _y)) <= 1 and -100 <= calc_angle(origin, (-1*_x, _y)) <= 100:
         return True
     if state != StateNum.RUBBERCON_DRIVING and\
-        -2 <= -1*_y <= 0 + lateral_roi_param and -0.75 * axial_roi_param <= -1*_x <= 1.5:
+        -0.5 <= -1*_y <= 0 + lateral_roi_param and -0.75 * axial_roi_param <= -1*_x <= 1.5:
         return True
     
     return False
