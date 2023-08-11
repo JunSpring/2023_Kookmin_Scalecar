@@ -81,8 +81,8 @@ class Controller:
         limitedSpeed = 2.5 * 0.16   #제한 속도
 
         if self.mission == StateNum.NORMAL_DRIVING:    #평시주행
-            speed = usualSpeed * 0.8
-            angle = angle * 0.6
+            speed = usualSpeed * 0.5
+            angle = angle * 0
 
         elif self.mission == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION:  #어린이보호구역
             speed = limitedSpeed

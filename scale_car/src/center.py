@@ -81,7 +81,7 @@ class Center():
 
         # ros가 실행되는 동안 publish_data 함수 반복실행
         while not rospy.is_shutdown():
-            # self.publish_data()
+            self.publish_data()
             pass
 
     # 객체 검출 subscribe callback 함수
@@ -154,7 +154,7 @@ class Center():
         global yolo
         global yolo_size
 
-        if sign_distance < 100:
+        if sign_distance is not None and sign_distance < 100:
             state = StateNum.SCHOOL_ZONE_SIGN_RECOGNITION
 
         # elif yolo == YoloNum.DYNAMIC_OBSTACLE and self.nearest_circle_distance() < 100:
@@ -163,7 +163,7 @@ class Center():
         # elif False and self.nearest_circle_distance() < 100:
         #     state = StateNum.RUBBERCON_DRIVING
 
-        elif True and self.nearest_circle_distance(-0.1, 0.1) < 1.5:
+        elif yolo == YoloNum.RUBBERCONE and self.nearest_circle_distance(-0.1, 0.1) < 1.5:
             state = StateNum.STATIC_OBSTACLE
 
         else:
@@ -188,8 +188,6 @@ class Center():
             # 현재 원의 중심점과의 거리가 이전 원들과의 거리보다 작으면 업데이트
             if distance_to_center < min_distance:
                 min_distance = distance_to_center
-
-        print(min_distance)
 
         return min_distance
     
@@ -291,7 +289,7 @@ class Center():
     def loginfo(self, data):
         if data == StateNum.NORMAL_DRIVING:
             str = "normal driving"
-        elif data == (StateNum.SCHOOL_ZONE_sign_RECOGNITION or\
+        elif data == (StateNum.SCHOOL_ZONE_SIGN_RECOGNITION or\
                     StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION or\
                     StateNum.SCHOOL_ZONE_RESTART):
             str = "school zone"
