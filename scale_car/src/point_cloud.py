@@ -7,7 +7,7 @@ import numpy as np
 from sensor_msgs.msg import LaserScan, PointCloud
 from geometry_msgs.msg import Point32
 from std_msgs.msg import Float64
-from scale_car.msg import lidar_msg
+from scale_car.msg import center_msg
 
 import math
 
@@ -29,7 +29,7 @@ state = StateNum.NORMAL_DRIVING
 class rpScanfReceiver:
     def __init__(self):
         self.lscan = rospy.Subscriber("/scan", LaserScan, self.callback)
-        rospy.Subscriber("/lidar_pub", lidar_msg, self.lidar_callback)
+        rospy.Subscriber("/center_data", center_msg, self.center_callback)
         self.pc_pub = rospy.Publisher("/pcl", PointCloud, queue_size=5)
  
     def callback(self, data):
@@ -46,12 +46,12 @@ class rpScanfReceiver:
                 PC_data.points.append(Point32(x, y, 0))
         self.pc_pub.publish(PC_data)
     
-    def lidar_callback(self, data):
+    def center_callback(self, data):
         global lateral_roi_param
         global axial_roi_param
         global state
 
-        state = data.state        
+        state = data.state
 
 def calc_axis_xy(_theta, _distance, _min_range, _max_range):
     if _min_range <= _distance <= _max_range:
@@ -72,7 +72,7 @@ def is_data(_x, _y):
         calc_distance(origin, (_x, _y)) <= 1 and -100 <= calc_angle(origin, (-1*_x, _y)) <= 100:
         return True
     if state != StateNum.RUBBERCON_DRIVING and\
-        -0.5 <= -1*_y <= 0 + lateral_roi_param and -0.75 * axial_roi_param <= -1*_x <= 1.5:
+        -0.5 <= -1*_y <= 0.5 and 0.0 <= -1*_x <= 1.5:
         return True
     
     return False
@@ -95,8 +95,8 @@ def calc_angle(point1, point2):
     x1, y1 = point1
     x2, y2 = point2
 
-    # Lidar X-axis transformation
-    x1, x2 = -x1, -x2
+    # # Lidar X-axis transformation
+    # x1, x2 = -x1, -x2
 
     # Calculate the differences in x and y coordinates
     dx = x2 - x1
