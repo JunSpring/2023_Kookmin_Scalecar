@@ -90,8 +90,8 @@ class Center():
 
         circles = data.circles
 
-        # self.excute_mission()
-        rospy.loginfo("%f",self.nearest_circle_distance(-0.5, 0.5))
+        self.excute_mission()
+        # rospy.loginfo("%f",self.nearest_circle_distance())
 
     # 표지판 subscribe callback 함수
     def sign_callback(self, data):
