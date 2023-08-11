@@ -31,7 +31,7 @@ count = 0
 
 class YoloV5_ROS():
     def __init__(self):
-        rospy.Subscriber("/usb_cam/image_raw/compressed", CompressedImage, self.Callback)
+        rospy.Subscriber("/usb_cam/image_raw", Image, self.Callback)
         self.pub = rospy.Publisher("yolov5_pub", data_class=Yolo_Objects, queue_size=10)
 
         self.source = rospy.get_param("~source")
@@ -57,9 +57,14 @@ class YoloV5_ROS():
     def Callback(self, data): 
         global count
         bridge = CvBridge()
-        img = bridge.compressed_imgmsg_to_cv2(data, "bgr8")
+        img = bridge.imgmsg_to_cv2(data, "bgr8")
+        msg = Yolo_Objects()
         
         c = -1 # class (-1: 물체 없음)
+        x1 = -1
+        x2 = -1
+        y1 = -1
+        y2 = -1
 
         cv2.namedWindow('result', cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)  # allow window resize (Linux)
         count += 1
@@ -105,9 +110,14 @@ class YoloV5_ROS():
                     x1, y1, x2, y2 = map(int, xyxy)
 
                     # msg publish
-                    msg = Yolo_Objects()
+                    #msg = Yolo_Objects()
                     msg.yolo_objects.append(Objects(c, x1, x2, y1, y2))
-                    self.pub.publish(msg)
+                    #self.pub.publish(msg)
+
+            # msg publish
+            if c == -1:
+                msg.yolo_objects.append(Objects(c, x1, x2, y1, y2))
+            self.pub.publish(msg) 
 
             cv2.imshow('result', im0s)
             cv2.waitKey(1)  # 1 millisecond
