@@ -51,7 +51,7 @@ class rpScanfReceiver:
         global axial_roi_param
         global state
 
-        state = data.state        
+        state = data.state
 
 def calc_axis_xy(_theta, _distance, _min_range, _max_range):
     if _min_range <= _distance <= _max_range:
@@ -95,8 +95,8 @@ def calc_angle(point1, point2):
     x1, y1 = point1
     x2, y2 = point2
 
-    # Lidar X-axis transformation
-    x1, x2 = -x1, -x2
+    # # Lidar X-axis transformation
+    # x1, x2 = -x1, -x2
 
     # Calculate the differences in x and y coordinates
     dx = x2 - x1

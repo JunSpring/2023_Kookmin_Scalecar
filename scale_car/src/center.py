@@ -90,8 +90,8 @@ class Center():
 
         circles = data.circles
 
-        self.excute_mission()
-        # rospy.loginfo("%f",self.nearest_circle_distance())
+        # self.excute_mission()
+        rospy.loginfo("%f",self.nearest_circle_distance(-0.5, 0.5))
 
     # 표지판 subscribe callback 함수
     def sign_callback(self, data):
@@ -157,10 +157,10 @@ class Center():
         if sign_distance is not None and sign_distance < 100:
             state = StateNum.SCHOOL_ZONE_SIGN_RECOGNITION
 
-        # elif yolo == YoloNum.DYNAMIC_OBSTACLE and self.nearest_circle_distance() < 100:
+        # elif yolo == YoloNum.DYNAMIC_OBSTACLE and self.nearest_circle_distance() < 1.0:
         #     state = StateNum.DYNAMIC_OBSTACLE
 
-        # elif False and self.nearest_circle_distance() < 100:
+        # elif yolo == YoloNum.RUBBERCONE and self.nearest_circle_distance() < 1.0
         #     state = StateNum.RUBBERCON_DRIVING
 
         elif yolo == YoloNum.RUBBERCONE and self.nearest_circle_distance(-0.1, 0.1) < 1.5:
