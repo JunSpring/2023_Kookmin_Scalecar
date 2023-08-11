@@ -16,7 +16,7 @@ from obstacle_avoidance.msg import avoid_angle
 
 class Controller:
     lane = -1  #-1 = 1차선, 1 = 2차선
-    mission=0
+    mission = StateNum.NORMAL_DRIVING_WITH_YOLO
     
     def __init__(self):
         rospy.Subscriber("/lane_pub", lane_msg, self.lane_callback)
@@ -80,9 +80,13 @@ class Controller:
         usualSpeed = 2.5 * 0.5  #일반 속도
         limitedSpeed = 2.5 * 0.16   #제한 속도
 
-        if self.mission == StateNum.NORMAL_DRIVING:    #평시주행
+        if self.mission == StateNum.NORMAL_DRIVING_WITH_YOLO:
             speed = usualSpeed * 0.5
-            angle = angle * 0
+            angle = angle * 0.6
+
+        elif self.mission == StateNum.NORMAL_DRIVING:    #평시주행
+            speed = usualSpeed * 0.8
+            angle = angle * 0.6
 
         elif self.mission == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION:  #어린이보호구역
             speed = limitedSpeed
@@ -95,8 +99,8 @@ class Controller:
             self.stop()
         
         elif self.mission == StateNum.RUBBERCON_DRIVING:  #라바콘 회피주행
-            angle = angle * 0.025
             speed = usualSpeed * 0.475
+            angle = angle * 0.025
 
         elif self.mission == StateNum.STATIC_OBSTACLE:  #정적장애물
             self.doSnake()
@@ -124,7 +128,7 @@ class Controller:
             self.likeSnake()
             rate.sleep()
 
-        for i in range(80): #0.80초 동안 직진
+        for i in range(100): #0.80초 동안 직진
             self.driveInfo.drive.steering_angle = 0.0
             self.driveInfo.drive.speed = 2.5 * 0.2
             self.publish_data()
