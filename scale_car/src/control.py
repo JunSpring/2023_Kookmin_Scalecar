@@ -61,24 +61,26 @@ class Controller:
     def calc_angle_speed(self):
         angle_parameter = 3
 
-        if self.mission == 3:  #라바콘
-            self.lane = 1
+        if self.mission == StateNum.RUBBERCON_DRIVING:  #라바콘
+            self.lane = -1
             angle = -1 * self.avoid_angle
         else:
             '''좌표 기준점 평행이동'''
             x = self.laneWaypoint_x - 160
             y = 240 - self.laneWaypoint_y
     
-        try:
-            angle = -1 * math.atan(x / y) / math.pi * 2 * 0.34 * angle_parameter #웨이포인트 각도를 -1~1로 변환 후 맵핑
-        except:
-            angle = 0.0
+            try:
+                angle = -1 * math.atan(x / y) / math.pi * 2 * 0.34 * angle_parameter #웨이포인트 각도를 -1~1로 변환 후 맵핑
+            except:
+                angle = 0.0
 
         '''테스트용 각도'''
         # angle = 0.0
         # (2.5 - abs(angle) / 0.34 / angle_parameter * 2.5) #조향각 연동 속도
         usualSpeed = 2.5 * 0.5  #일반 속도
         limitedSpeed = 2.5 * 0.16   #제한 속도
+
+        print(self.mission)
 
         if self.mission == StateNum.NORMAL_DRIVING_WITH_YOLO:
             speed = usualSpeed * 0.5
@@ -91,12 +93,12 @@ class Controller:
         elif self.mission == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION:  #어린이보호구역
             speed = limitedSpeed
         elif self.mission == StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION:
-            self.stop()
+            speed = 0.0
         elif self.mission == StateNum.SCHOOL_ZONE_RESTART:
             speed = limitedSpeed
 
         elif self.mission == StateNum.DYNAMIC_OBSTACLE:  #동적장애물
-            self.stop()
+            speed = 0.0
         
         elif self.mission == StateNum.RUBBERCON_DRIVING:  #라바콘 회피주행
             speed = usualSpeed * 0.475

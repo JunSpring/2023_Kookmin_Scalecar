@@ -16,6 +16,8 @@ from enums import StateNum
 from enums import YoloNum
 
 # ------------------------ 전역변수 ------------------------
+# conda activate VIT
+
 # # 이전 state 변수
 # prev_state = None
 
@@ -45,7 +47,7 @@ from enums import YoloNum
 # mission4_prev_time = 0
 
 prev_state = None
-state = 0
+state = StateNum.NORMAL_DRIVING_WITH_YOLO
 
 circles = None
 
@@ -71,6 +73,7 @@ class Center():
 
         # ros가 실행되는 동안 publish_data 함수 반복실행
         while not rospy.is_shutdown():
+            self.excute_mission()
             self.publish_data()
 
     # 객체 검출 subscribe callback 함수
@@ -79,9 +82,8 @@ class Center():
 
         circles = data.circles
 
-        self.excute_mission()
-
     def Yolo_Objects_callback(self, data):
+        global state
         global yolo
         global yolo_size
         global yolo_nothing_count
@@ -101,17 +103,24 @@ class Center():
             for yo in data.yolo_objects:
                 size = self.calculate_size(yo.x1, yo.x2, yo.y1, yo.y2)
 
-                if yo.c == YoloNum.ACURO_MARKER and 0.8 <= (yo.x1-yo.x2)/(yo.y1-yo.y2) <= 1.2:
+                if state == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION and yo.c == YoloNum.CROSS_WALK:
                     max_size = size
                     max_index = yo.c
                     break
 
-                if size > max_size:
+                if (yo.c == YoloNum.ARUCO_MARKER) and (0.8 <= abs((yo.x2-yo.x1)/(yo.y2-yo.y1)) <= 1.2):
+                    max_size = size
+                    max_index = yo.c
+                    break
+
+                if (yo.c != YoloNum.ARUCO_MARKER) and size > max_size:
                     max_size = size
                     max_index = yo.c
 
             yolo = max_index
             yolo_size = max_size
+
+        # rospy.loginfo(yolo)
 
     def calculate_size(self, x1, x2, y1, y2):
         width = abs(x2 - x1)
@@ -123,14 +132,14 @@ class Center():
     def excute_mission(self):
         global state
 
-        if state == (StateNum.NORMAL_DRIVING or StateNum.NORMAL_DRIVING_WITH_YOLO) or state is None: 
+        if state == StateNum.NORMAL_DRIVING or state == StateNum.NORMAL_DRIVING_WITH_YOLO or state is None: 
             self.normal_driving()
             self.select_mission_number()
 
         else:
-            if state == (StateNum.SCHOOL_ZONE_SIGN_RECOGNITION or\
-                        StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION or\
-                        StateNum.SCHOOL_ZONE_RESTART):
+            if state == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION or\
+                state == StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION or\
+                state == StateNum.SCHOOL_ZONE_RESTART:
                 self.school_zone()
             
             elif state == StateNum.DYNAMIC_OBSTACLE:
@@ -148,10 +157,10 @@ class Center():
         global state
         global yolo
 
-        if yolo == YoloNum.ACURO_MARKER:
+        if yolo == YoloNum.ARUCO_MARKER:
             state = StateNum.SCHOOL_ZONE_SIGN_RECOGNITION
 
-        elif yolo == YoloNum.DYNAMIC_OBSTACLE and self.nearest_circle_distance(-0.5, 0.5) < 0.5:
+        elif yolo == YoloNum.DYNAMIC_OBSTACLE and yolo_size > 100 and self.nearest_circle_distance(-0.5, 0.5) < 1.0:
             state = StateNum.DYNAMIC_OBSTACLE
 
         elif yolo == YoloNum.RUBBERCONE and self.nearest_circle_distance(-0.5, 0.5) < 0.5:
@@ -172,19 +181,20 @@ class Center():
 
         min_distance = float('inf') # 처음에는 무한대로 설정
 
-        for circle in circles:
-            center_x = circle.center.x
-            center_y = circle.center.y
+        if circles is not None:
+            for circle in circles:
+                center_x = circle.center.x
+                center_y = circle.center.y
 
-            if not left <= center_y <= right:
-                continue
+                if not left <= center_y <= right:
+                    continue
 
-            # (0, 0) 위치와 중심점 간의 거리 계산
-            distance_to_center = math.sqrt(center_x**2 + center_y**2)
+                # (0, 0) 위치와 중심점 간의 거리 계산
+                distance_to_center = math.sqrt(center_x**2 + center_y**2)
 
-            # 현재 원의 중심점과의 거리가 이전 원들과의 거리보다 작으면 업데이트
-            if distance_to_center < min_distance:
-                min_distance = distance_to_center
+                # 현재 원의 중심점과의 거리가 이전 원들과의 거리보다 작으면 업데이트
+                if distance_to_center < min_distance:
+                    min_distance = distance_to_center
 
         return min_distance
     
@@ -202,8 +212,8 @@ class Center():
         now = rospy.Time.now().to_sec()
 
         if state == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION:
-            if yolo == YoloNum.CROSS_WALK and yolo_size > 400:
-                state == StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION
+            if yolo == YoloNum.CROSS_WALK and yolo_size > 300:
+                state = StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION
                 yolo = None
                 yolo_size = None
 
@@ -218,10 +228,10 @@ class Center():
                 start = None
 
         elif state == StateNum.SCHOOL_ZONE_RESTART:
-            if not ready_to_crosswalk and yolo == YoloNum.ACURO_MARKER:
+            if not ready_to_crosswalk and yolo == YoloNum.ARUCO_MARKER:
                 ready_to_crosswalk = True
 
-            elif ready_to_crosswalk and yolo == YoloNum.CROSS_WALK and yolo_size > 400:
+            elif ready_to_crosswalk and yolo == YoloNum.CROSS_WALK and yolo_size > 300:
                 state = StateNum.NORMAL_DRIVING_WITH_YOLO
                 yolo = None
                 yolo_size = None
@@ -254,7 +264,7 @@ class Center():
         global yolo_size
 
         if self.nearest_circle_distance(-1.0, 1.0) == float('inf'):
-            state == StateNum.NORMAL_DRIVING_WITH_YOLO
+            state = StateNum.NORMAL_DRIVING_WITH_YOLO
             yolo = None
             yolo_size = None
 
@@ -280,6 +290,7 @@ class Center():
     # publish 함수
     def publish_data(self):
         # global 변수
+        global prev_state
         global state
 
         # publish data 대입
@@ -297,13 +308,15 @@ class Center():
 
     def loginfo(self, data):
         if data == StateNum.NORMAL_DRIVING_WITH_YOLO:
-            str == "normal driving with yolo"
+            str = "normal driving with yolo"
         elif data == StateNum.NORMAL_DRIVING:
             str = "normal driving"
-        elif data == (StateNum.SCHOOL_ZONE_SIGN_RECOGNITION or\
-                    StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION or\
-                    StateNum.SCHOOL_ZONE_RESTART):
-            str = "school zone"
+        elif data == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION:
+            str = "school zone sign recognition"
+        elif data == StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION:
+            str = "school zone crossing recognition"
+        elif data == StateNum.SCHOOL_ZONE_RESTART:
+            str = "school zone restart"
         elif data == StateNum.DYNAMIC_OBSTACLE:
             str = "dynamic object"
         elif data == StateNum.RUBBERCON_DRIVING:
@@ -312,6 +325,7 @@ class Center():
             str = "static object"
 
         rospy.loginfo(str)
+        # rospy.loginfo(yolo_nothing_count)
         
 # ------------------------ run ------------------------
 def run():

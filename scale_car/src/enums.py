@@ -16,4 +16,4 @@ class YoloNum(IntEnum):
     DYNAMIC_OBSTACLE                    = 1
     RUBBERCONE                          = 2
     CROSS_WALK                          = 3
-    ACURO_MARKER                        = 4
+    ARUCO_MARKER                        = 4

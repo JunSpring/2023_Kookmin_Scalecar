@@ -94,7 +94,7 @@ class ObstacleAvoidance:
         self.pub.publish(publishing_data)
 
         # loginfo (publish 및 최종 제어 각도 출력)
-        rospy.loginfo("publish min angle : %f", min_angle)
+        # rospy.loginfo("publish min angle : %f", min_angle)
 
     # f_total 함수에서 최솟값을 갖는 각도를 리턴하는 함수
     def find_min_f_totoal(self):
