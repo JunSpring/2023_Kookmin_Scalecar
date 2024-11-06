@@ -57,7 +57,10 @@ yolo_nothing_count = 0
 
 start = None
 
+start_school_zone_restart = None
 ready_to_crosswalk = False
+
+static_obstacle_offset = 0.0
 
 # ------------------------ class ------------------------
 class Center():
@@ -108,7 +111,7 @@ class Center():
                     max_index = yo.c
                     break
 
-                if (yo.c == YoloNum.ARUCO_MARKER) and (0.8 <= abs((yo.x2-yo.x1)/(yo.y2-yo.y1)) <= 1.2):
+                if (yo.c == YoloNum.ARUCO_MARKER) and (0.71 <= abs((yo.x2-yo.x1)/(yo.y2-yo.y1)) <= 0.91):
                     max_size = size
                     max_index = yo.c
                     break
@@ -157,16 +160,18 @@ class Center():
         global state
         global yolo
 
-        if yolo == YoloNum.ARUCO_MARKER:
+        # rospy.loginfo(yolo, yolo_size)
+
+        if yolo == YoloNum.ARUCO_MARKER and yolo_size < 50:
             state = StateNum.SCHOOL_ZONE_SIGN_RECOGNITION
 
-        elif yolo == YoloNum.DYNAMIC_OBSTACLE and yolo_size > 100 and self.nearest_circle_distance(-0.5, 0.5) < 1.0:
+        elif yolo == YoloNum.DYNAMIC_OBSTACLE and yolo_size > 80 and self.nearest_circle_distance(-0.5, 0.5) < 0.75:
             state = StateNum.DYNAMIC_OBSTACLE
 
         elif yolo == YoloNum.RUBBERCONE and self.nearest_circle_distance(-0.5, 0.5) < 0.5:
             state = StateNum.RUBBERCON_DRIVING
 
-        elif yolo == YoloNum.STATIC_OBSTACLE and self.nearest_circle_distance(-0.1, 0.1) < 1.0:
+        elif yolo == YoloNum.STATIC_OBSTACLE and self.nearest_circle_distance(-0.1, 0.1) < 1.5:
             state = StateNum.STATIC_OBSTACLE
 
         elif yolo == YoloNum.NOTHING:
@@ -178,6 +183,7 @@ class Center():
     # (0, 0) 위치로부터 가장 가까운 원의 중심점까지의 거리를 반환하는 함수
     def nearest_circle_distance(self, left, right):
         global circles
+        global static_obstacle_offset
 
         min_distance = float('inf') # 처음에는 무한대로 설정
 
@@ -195,6 +201,7 @@ class Center():
                 # 현재 원의 중심점과의 거리가 이전 원들과의 거리보다 작으면 업데이트
                 if distance_to_center < min_distance:
                     min_distance = distance_to_center
+                    static_obstacle_offset = center_y
 
         return min_distance
     
@@ -207,12 +214,13 @@ class Center():
         global yolo
         global yolo_size
         global start
+        global start_school_zone_restart
         global ready_to_crosswalk
 
         now = rospy.Time.now().to_sec()
 
         if state == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION:
-            if yolo == YoloNum.CROSS_WALK and yolo_size > 300:
+            if yolo == YoloNum.CROSS_WALK and yolo_size > 350:
                 state = StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION
                 yolo = None
                 yolo_size = None
@@ -228,14 +236,33 @@ class Center():
                 start = None
 
         elif state == StateNum.SCHOOL_ZONE_RESTART:
-            if not ready_to_crosswalk and yolo == YoloNum.ARUCO_MARKER:
-                ready_to_crosswalk = True
+            now = rospy.Time.now().to_sec()
 
-            elif ready_to_crosswalk and yolo == YoloNum.CROSS_WALK and yolo_size > 300:
+            if start_school_zone_restart is None:
+                start_school_zone_restart = now
+            
+            elif now - start_school_zone_restart > 15.0:
                 state = StateNum.NORMAL_DRIVING_WITH_YOLO
                 yolo = None
                 yolo_size = None
+                start = None
+                start_school_zone_restart = None
                 ready_to_crosswalk = False
+
+            if (not ready_to_crosswalk) and yolo == YoloNum.ARUCO_MARKER and yolo_size < 50:
+                ready_to_crosswalk = True
+
+            elif start is not None or (ready_to_crosswalk and yolo == YoloNum.CROSS_WALK and yolo_size > 350):
+                if start is None:
+                    start = now
+
+                elif now - start > 1.5:
+                    state = StateNum.NORMAL_DRIVING_WITH_YOLO
+                    yolo = None
+                    yolo_size = None
+                    start = None
+                    start_school_zone_restart = None
+                    ready_to_crosswalk = False
 
     # mission2 동적장애물 함수
     def dynamic_object(self):
@@ -250,7 +277,7 @@ class Center():
         if start is None:
             start = now
 
-        elif now - start > 10.0:
+        elif now - start > 7.0:
             state = StateNum.NORMAL_DRIVING_WITH_YOLO
             yolo = None
             yolo_size = None
@@ -262,8 +289,9 @@ class Center():
         global state
         global yolo
         global yolo_size
+        global circles
 
-        if self.nearest_circle_distance(-1.0, 1.0) == float('inf'):
+        if len(circles) <= 1 or self.nearest_circle_distance(-1.0, 1.0) == float('inf'):
             state = StateNum.NORMAL_DRIVING_WITH_YOLO
             yolo = None
             yolo_size = None
@@ -281,7 +309,7 @@ class Center():
         if start is None:
             start = now
 
-        elif start and now - start > 1.75:
+        elif start and now - start > 1.25:
             state = StateNum.NORMAL_DRIVING_WITH_YOLO
             yolo = None
             yolo_size = None
@@ -292,10 +320,12 @@ class Center():
         # global 변수
         global prev_state
         global state
+        global static_obstacle_offset
 
         # publish data 대입
         publishing_data = center_msg()
         publishing_data.state = state
+        publishing_data.static_obstacle = static_obstacle_offset
 
         # publish
         self.pub.publish(publishing_data)

@@ -1,1 +1,2 @@
-int32 state
+int64 state
+float64 static_obstacle
