@@ -1,0 +1,3 @@
+<launch>
+	<node name="ld_pub" pkg="lane_detection" type="pub.py" output="screen" respawn="true"/>
+</launch>

@@ -1,0 +1,1 @@
+python detect.py --weights /home/a/yolov5/runs/train/scale_car_train_result3/weights/best.pt --view-img --source /home/a/Dataset/video/kmu_dataset2.mp4

@@ -5,429 +5,327 @@
 from re import S
 from xmlrpc.client import NOT_WELLFORMED_ERROR
 import rospy
-from obstacle_detector.msg import Obstacles
-from scale_car.msg import lidar_msg
-from std_msgs.msg import Float32
 import math
 
-from state_number import StateNum
+from obstacle_detector.msg import Obstacles
+from scale_car.msg import center_msg
+from scale_car_yolov5.msg import Yolo_Objects
+from std_msgs.msg import Float32
+
+from enums import StateNum
+from enums import YoloNum
 
 # ------------------------ 전역변수 ------------------------
-# 이전 state 변수
+# conda activate VIT
+
+# # 이전 state 변수
+# prev_state = None
+
+# # 기본 변수들
+# start = None                # LiDAR 최초 검출 시간기록용 변수
+# state = 0                   # 미션 상태 변수
+# ready = False               # circles가 존재 시 True로 변환되는 변수
+
+# # 표지판 변수
+# sign = None                 # 차량과 표지판 사이의 거리 변수
+
+# # mission1 변수
+# mission1_running = False    # mission1을 수행중인지 판단하는 변수
+# mission1_start = None       # mission1 시작시간기록용 변수
+# mission1_prev_time = 0
+
+# # mission2 변수
+# mission2_count = 0          # 객체가 왼쪽으로 이동하는 횟수를 저장하는 변수
+# mission2_prev_data = None   # 객체의 이전 x좌표를 저장하는 변수
+# mission2_start = None       # mission2 시작시간기록용 변수
+# mission2_prev_time = 0
+
+# # mission4 변수
+# mission4_count = 0          # mission4 publish rate 횟수 기록용 변수
+# mission4_state = False      # mission4가 진행중인지 기록하기 위한 변수
+# mission4_start = None       # mission4 시작시간기록용 변수
+# mission4_prev_time = 0
+
 prev_state = None
+state = StateNum.NORMAL_DRIVING_WITH_YOLO
 
-# 기본 변수들
-start = None                # LiDAR 최초 검출 시간기록용 변수
-state = 0                   # 미션 상태 변수
-ready = False               # circles가 존재 시 True로 변환되는 변수
+circles = None
 
-# 표지판 변수
-sign = None                 # 차량과 표지판 사이의 거리 변수
+yolo = None
+yolo_size = None
+yolo_nothing_count = 0
 
-# mission1 변수
-mission1_running = False    # mission1을 수행중인지 판단하는 변수
-mission1_start = None       # mission1 시작시간기록용 변수
-mission1_prev_time = 0
+start = None
 
-# mission2 변수
-mission2_count = 0          # 객체가 왼쪽으로 이동하는 횟수를 저장하는 변수
-mission2_prev_data = None   # 객체의 이전 x좌표를 저장하는 변수
-mission2_start = None       # mission2 시작시간기록용 변수
-mission2_prev_time = 0
+start_school_zone_restart = None
+ready_to_crosswalk = False
 
-# mission4 변수
-mission4_count = 0          # mission4 publish rate 횟수 기록용 변수
-mission4_state = False      # mission4가 진행중인지 기록하기 위한 변수
-mission4_start = None       # mission4 시작시간기록용 변수
-mission4_prev_time = 0
+static_obstacle_offset = 0.0
 
 # ------------------------ class ------------------------
-class LidarReceiver():
+class Center():
     def __init__(self):
-        rospy.loginfo("Center is Created")
+        rospy.loginfo("Center Object is Created")
 
         # publisher
-        self.pub = rospy.Publisher("/center_data", lidar_msg, queue_size=10)
-        """
-        Publish content
-        int32 state (차량 미션 상태)
-        float32 xwaypoint (라바콘 waypoint x좌표)
-        float32 ywaypoint (라바콘 waypoint y좌표)
-        """
+        self.pub = rospy.Publisher("/center_data", center_msg, queue_size=10)
 
         # subscriber
         rospy.Subscriber("/raw_obstacles", Obstacles, self.Obstacles_callback)
-        rospy.Subscriber("/sign_pub", Float32, self.sign_callback)
-        rospy.Subscriber("/yolo", yolo, self.yolo_callback)
+        rospy.Subscriber("/yolov5_pub", Yolo_Objects, self.Yolo_Objects_callback)
 
         # ros가 실행되는 동안 publish_data 함수 반복실행
         while not rospy.is_shutdown():
-            self.select_mission_number()
+            self.excute_mission()
             self.publish_data()
 
     # 객체 검출 subscribe callback 함수
-    def Obstacles_callback(self, _data):
-        # # global 변수
-        # global ready
-        # global sign
-        # global mission1_running
-        # global mission2_count
+    def Obstacles_callback(self, data):
+        global circles
 
-        # circles = _data.circles
-        
-        # # 표지판 검출 시 라이다 상황을 고려하지 않고 mission1 진행
-        # if sign:
-        #     mission1_running = True
+        circles = data.circles
 
-        # if mission1_running:
-        #     mission2_count = 0
+    def Yolo_Objects_callback(self, data):
+        global state
+        global yolo
+        global yolo_size
+        global yolo_nothing_count
 
-        #     self.mission1()
+        max_index = None
+        max_size = 0
 
-        # # 표지판 비검출 시와 circles 검출 시 나머지 mission 진행
-        # elif circles:
-        #     ready = True
-        
-        # if ready:
-        #     self.state_ready(circles)
-        pass
+        if data.yolo_objects[0].c == YoloNum.NOTHING:
+            yolo_nothing_count += 1
 
-    # 표지판 subscribe callback 함수
-    def sign_callback(self, msg):
-        # global 변수
-        global sign
+            if yolo_nothing_count >= 6:
+                yolo = YoloNum.NOTHING
 
-        sign = msg.data
+        else:
+            yolo_nothing_count = 0
 
-    def yolo_callback(self, data):
-        pass
+            for yo in data.yolo_objects:
+                size = self.calculate_size(yo.x1, yo.x2, yo.y1, yo.y2)
 
-    # # 객체 검출 시 짧은 시간 저속주행으로 추가 객체 감지를 진행하는 함수
-    # def state_ready(self, circles):
-    #     # global 변수
-    #     global start
-    #     global state
+                if state == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION and yo.c == YoloNum.CROSS_WALK:
+                    max_size = size
+                    max_index = yo.c
+                    break
 
-    #     if (not start) and (not state):
-    #         start = rospy.Time.now().to_sec()
-    #         state = 5
-    #     else:
-    #         if rospy.Time.now().to_sec() - start < 2:
-    #             state = 5
+                if (yo.c == YoloNum.ARUCO_MARKER) and (0.71 <= abs((yo.x2-yo.x1)/(yo.y2-yo.y1)) <= 0.91):
+                    max_size = size
+                    max_index = yo.c
+                    break
 
-    #             # 저속주행시 mission2 가능성을 모색
-    #             self.mission2(False, circles)
-    #         else:
-    #             self.select_mission_number(circles)
+                if (yo.c != YoloNum.ARUCO_MARKER) and size > max_size:
+                    max_size = size
+                    max_index = yo.c
+
+            yolo = max_index
+            yolo_size = max_size
+
+        # rospy.loginfo(yolo)
+
+    def calculate_size(self, x1, x2, y1, y2):
+        width = abs(x2 - x1)
+        height = abs(y2 - y1)
+        size = math.sqrt(width**2 + height**2)
+
+        return size
+    
+    def excute_mission(self):
+        global state
+
+        if state == StateNum.NORMAL_DRIVING or state == StateNum.NORMAL_DRIVING_WITH_YOLO or state is None: 
+            self.normal_driving()
+            self.select_mission_number()
+
+        else:
+            if state == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION or\
+                state == StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION or\
+                state == StateNum.SCHOOL_ZONE_RESTART:
+                self.school_zone()
+            
+            elif state == StateNum.DYNAMIC_OBSTACLE:
+                self.dynamic_object()
+
+            elif state == StateNum.RUBBERCON_DRIVING:
+                self.rubber_cone()
+
+            elif state == StateNum.STATIC_OBSTACLE:
+                self.static_object()
 
     # 추가 객체 감지를 마친 후 mission number를 결정하는 함수
     def select_mission_number(self):
         # global 변수
         global state
-        global mission2_count
-        global sign
+        global yolo
 
-        # # mission2 동적장애물
-        # if mission2_count > 5:
-        #     self.mission2(True)
+        # rospy.loginfo(yolo, yolo_size)
 
-        # # mission3 라바콘
-        # elif state == 3 or len(circles) >= 3:
-        #     mission2_count = 0
-
-        #     if len(circles) >= 3:
-        #         self.mission3(True, circles)
-        #     elif len(circles) == 0:
-        #         self.mission3(False)
-
-        # # mission4 정적장애물
-        # else:
-        #     mission2_count = 0
-            
-        #     self.mission4(circles)
-
-        if sign is not None:
+        if yolo == YoloNum.ARUCO_MARKER and yolo_size < 50:
             state = StateNum.SCHOOL_ZONE_SIGN_RECOGNITION
-            self.school_zone()
-        elif True:
-            state = StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION
-            self.school_zone()
-        elif True:
-            state = StateNum.SCHOOL_ZONE_RESTART
-            self.school_zone()
 
-        elif True:
+        elif yolo == YoloNum.DYNAMIC_OBSTACLE and yolo_size > 80 and self.nearest_circle_distance(-0.5, 0.5) < 0.75:
             state = StateNum.DYNAMIC_OBSTACLE
-            self.dynamic_object()
 
-        elif True:
-            state = StateNum.RUBBERCON_PRE_STATE
-            self.rubber_cone()
-        elif True:
+        elif yolo == YoloNum.RUBBERCONE and self.nearest_circle_distance(-0.5, 0.5) < 0.5:
             state = StateNum.RUBBERCON_DRIVING
-            self.rubber_cone()
 
-        elif True:
+        elif yolo == YoloNum.STATIC_OBSTACLE and self.nearest_circle_distance(-0.1, 0.1) < 1.5:
             state = StateNum.STATIC_OBSTACLE
-            self.static_object()
+
+        elif yolo == YoloNum.NOTHING:
+            state = StateNum.NORMAL_DRIVING
+
+        else:
+            state = StateNum.NORMAL_DRIVING_WITH_YOLO
+
+    # (0, 0) 위치로부터 가장 가까운 원의 중심점까지의 거리를 반환하는 함수
+    def nearest_circle_distance(self, left, right):
+        global circles
+        global static_obstacle_offset
+
+        min_distance = float('inf') # 처음에는 무한대로 설정
+
+        if circles is not None:
+            for circle in circles:
+                center_x = circle.center.x
+                center_y = circle.center.y
+
+                if not left <= center_y <= right:
+                    continue
+
+                # (0, 0) 위치와 중심점 간의 거리 계산
+                distance_to_center = math.sqrt(center_x**2 + center_y**2)
+
+                # 현재 원의 중심점과의 거리가 이전 원들과의 거리보다 작으면 업데이트
+                if distance_to_center < min_distance:
+                    min_distance = distance_to_center
+                    static_obstacle_offset = center_y
+
+        return min_distance
+    
+    def normal_driving(self):
+        pass
 
     # mission1 어린이보호구역 함수
     def school_zone(self):
-        # global 변수
         global state
-        global sign
-        global mission1_start
-        global mission1_running
-        global mission1_prev_time
+        global yolo
+        global yolo_size
+        global start
+        global start_school_zone_restart
+        global ready_to_crosswalk
 
-        # mission1 start 직후
-        if not mission1_start:
-            mission1_start = rospy.Time.now().to_sec()
-            state = 1
-        
-        # mission start 직후의 이후
-        else:
-            time = rospy.Time.now().to_sec() - mission1_start
-            if time < 15:
-                state = 1
-                if time > mission1_prev_time:
-                    rospy.loginfo('어린이 보호구역 %d',int(time))
-                    mission1_prev_time += 1
-            else:
-                # 변수 초기화
-                self.end_mission()
-                mission1_start = None
-                mission1_running = False
-                mission1_prev_time = 0
-                sign = None
+        now = rospy.Time.now().to_sec()
+
+        if state == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION:
+            if yolo == YoloNum.CROSS_WALK and yolo_size > 350:
+                state = StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION
+                yolo = None
+                yolo_size = None
+
+        elif state == StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION:
+            if start is None:
+                start = now
+
+            elif now - start > 5.0:
+                state = StateNum.SCHOOL_ZONE_RESTART
+                yolo = None
+                yolo_size = None
+                start = None
+
+        elif state == StateNum.SCHOOL_ZONE_RESTART:
+            now = rospy.Time.now().to_sec()
+
+            if start_school_zone_restart is None:
+                start_school_zone_restart = now
+            
+            elif now - start_school_zone_restart > 15.0:
+                state = StateNum.NORMAL_DRIVING_WITH_YOLO
+                yolo = None
+                yolo_size = None
+                start = None
+                start_school_zone_restart = None
+                ready_to_crosswalk = False
+
+            if (not ready_to_crosswalk) and yolo == YoloNum.ARUCO_MARKER and yolo_size < 50:
+                ready_to_crosswalk = True
+
+            elif start is not None or (ready_to_crosswalk and yolo == YoloNum.CROSS_WALK and yolo_size > 350):
+                if start is None:
+                    start = now
+
+                elif now - start > 1.5:
+                    state = StateNum.NORMAL_DRIVING_WITH_YOLO
+                    yolo = None
+                    yolo_size = None
+                    start = None
+                    start_school_zone_restart = None
+                    ready_to_crosswalk = False
 
     # mission2 동적장애물 함수
-    def dynamic_object(self, mission_start, circles = None):
+    def dynamic_object(self):
         # global 변수
         global state
-        global mission2_count
-        global mission2_prev_data
-        global mission2_start
-        global mission2_prev_time
+        global yolo
+        global yolo_size
+        global start
 
-        closest_circle = None
-        min_distance = 100
-        
-        # 미션 시작 전 mission2인지 판단하기 위한 코드
-        if not mission_start:
-            if circles:
-                # 가장 가까운 circle 판단 코드
-                for circle in circles:
-                    distance = math.sqrt(circle.center.x ** 2 + circle.center.y ** 2) - circle.true_radius
-                    if distance < min_distance:
-                        closest_circle = circle
-                        min_distance = distance
+        now = rospy.Time.now().to_sec()
 
-                # 객체의 x좌표가 감소할 때마다 count하는 코드
-                if not mission2_prev_data:
-                    mission2_prev_data = closest_circle.center.y
-                else:
-                    # rospy.loginfo(mission2_prev_data - closest_circle.center.y)
-                    if mission2_prev_data - closest_circle.center.y > 0.015:
-                        
-                        mission2_count += 1
-                    mission2_prev_data = closest_circle.center.y
-                # rate = rospy.Rate(10)
+        if start is None:
+            start = now
 
-                # for circle in circles:
-                #     distance = math.sqrt(circle.center.x ** 2 + circle.center.y ** 2) - circle.true_radius
-                #     if distance < min_distance:
-                #         closest_circle = circle
-                #         min_distance = distance
-
-                # if not mission2_prev_data:
-                #     mission2_prev_data = closest_circle.center.y
-
-                # for i in range(15):
-                #     rospy.loginfo(i)
-                #     rate.sleep()
-
-                # if mission2_prev_data - closest_circle.center.y > 0.3:
-                #     mission2_count = 20
-
-        # mission2가 맞다면 실행하는 코드
-        else:
-            # mission2 start 직후
-            if not mission2_start:
-                mission2_start = rospy.Time.now().to_sec()
-                state = 2
-
-            # mission2 start 직후의 이후
-            else:
-                time = rospy.Time.now().to_sec() - mission2_start
-                if time < 9:
-                    if time > mission2_prev_data:
-                        rospy.loginfo("동적장애물 %d", int(time))
-                        mission2_prev_time += 1
-                else:
-                    # 변수 초기화
-                    self.end_mission()
-                    mission2_count = 0
-                    mission2_prev_data = None
-                    mission2_start = None
-                    mission2_prev_time = 0
+        elif now - start > 7.0:
+            state = StateNum.NORMAL_DRIVING_WITH_YOLO
+            yolo = None
+            yolo_size = None
+            start = None
 
     # mission3 라바콘
-    def rubber_cone(self, mission_state, circles = None):
+    def rubber_cone(self):
         # global 변수
         global state
+        global yolo
+        global yolo_size
+        global circles
 
-        # 가장 가까운 두 circle
-        circle1 = None
-        circle2 = None
-        circle1_error = True
-        circle2_error = True
-        error = False
-        min_distance = 100
-
-        if mission_state:
-            state = 3
-
-            if circles:
-                # 가장 가까운 두 circle을 찾는 코드
-                for circle in circles:
-                    distance = math.sqrt(circle.center.x ** 2 + circle.center.y ** 2) - circle.true_radius
-                    if distance < min_distance and circle.center.y > -0.1: # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                        circle1 = circle
-                        min_distance = distance
-                        circle1_error = False
-
-                if not circle1_error:
-                    circles.remove(circle1)
-
-                min_distance = 100
-                for circle in circles:
-                    distance = math.sqrt(circle.center.x ** 2 + circle.center.y ** 2) - circle.true_radius
-                    try:
-                        if distance < min_distance and circle.center.y < circle1.center.y - 0.45:
-                            circle2 = circle
-                            min_distance = distance
-                            circle2_error = False
-                    except:
-                        if distance < min_distance and circle.center.y < 0.3:
-                            circle2 = circle
-                            min_distance = distance
-                            circle2_error = False
- 
-                # try:
-                #     str = f"{circle1.center.y}\t{-1*circle1.center.x}\n{circle2.center.y}\t{-1*circle2.center.x}\n"
-                #     rospy.loginfo(str)
-                # except:
-                #     pass
-
-                if not circle1_error and not circle2_error and math.sqrt((circle1.center.x - circle2.center.x) ** 2 + (circle1.center.y - circle2.center.y) ** 2) > 0.7:
-                    circle_error = False
-                else:
-                    circle_error = True
-
-                if circle_error:
-                    if circle1_error:
-                        self.xwaypoint = -1
-                        self.ywaypoint = 1
-                    elif circle2_error:
-                        self.xwaypoint = -1
-                        self.ywaypoint = -1
-                    elif not error:
-                        self.ywaypoint = -1 * self.ywaypoint
-                        error = True
-                    else:
-                        if not circle_error:
-                            error = False
-
-                # 두 circle의 좌표의 평균값을 계산하여 저장
-                else:
-                    self.xwaypoint = (circle1.center.x + circle2.center.x) / 2
-                    self.ywaypoint = (circle1.center.y + circle2.center.y) / 2
-
-        else:
-            # 변수 초기화
-            self.end_mission()
-            self.xwaypoint = 0
-            self.ywaypoint = 0  
+        if len(circles) <= 1 or self.nearest_circle_distance(-1.0, 1.0) == float('inf'):
+            state = StateNum.NORMAL_DRIVING_WITH_YOLO
+            yolo = None
+            yolo_size = None
 
     # mission4 정적장애물 함수
-    def static_object(self, circles):
+    def static_object(self):
         # global 변수
         global state
-        global mission4_count
-        global mission4_state
-        global mission4_start
-        global mission4_prev_time
-
-        detected_circle = None
-
-        rate = rospy.Rate(10)
-
-        if circles:
-            # 가장 가까운 circle 판단 코드
-            for circle in circles:
-                if -0.1 <= circle.center.y <= 0.1:
-                    detected_circle = circle
-
-        if not mission4_state:
-            try:
-                if detected_circle:
-                    state = 4
-                    mission4_state = True
-                    mission4_start = rospy.Time.now().to_sec()
-                else:
-                    self.end_mission()
-                    mission4_count = 0
-                    mission4_state = False
-                    mission4_start = None
-            except:
-                self.end_mission()
-                mission4_count = 0
-                mission4_state = False
-                mission4_start = None
-
-        if mission4_state:
-            if mission4_count <= 5:
-                rate.sleep()
-                mission4_count += 1
-                return
-            else:
-                state = 0
-
-        if mission4_start and rospy.Time.now().to_sec() - mission4_start > 1.75:
-            # 변수 초기화
-            self.end_mission()
-            mission4_count = 0
-            mission4_state = False
-            mission4_start = None
-            mission4_prev_time = 0
-
-    # 공통되는 변수를 초기화하는 함수
-    def end_mission(self):
-        # global 변수
+        global yolo
+        global yolo_size
         global start
-        global state
-        global ready
 
-        # 변수 초기화
-        start = None
-        state = 0
-        ready = False
+        now = rospy.Time.now().to_sec()
+
+        if start is None:
+            start = now
+
+        elif start and now - start > 1.25:
+            state = StateNum.NORMAL_DRIVING_WITH_YOLO
+            yolo = None
+            yolo_size = None
+            start = None
 
     # publish 함수
     def publish_data(self):
         # global 변수
-        global start
-        global state
         global prev_state
-        global sign
+        global state
+        global static_obstacle_offset
 
         # publish data 대입
-        publishing_data = lidar_msg()
+        publishing_data = center_msg()
         publishing_data.state = state
-        publishing_data.xwaypoint = self.xwaypoint
-        publishing_data.ywaypoint = self.ywaypoint
-
+        publishing_data.static_obstacle = static_obstacle_offset
 
         # publish
         self.pub.publish(publishing_data)
@@ -435,31 +333,34 @@ class LidarReceiver():
         # rospy.loginfo
         if prev_state != state:
             self.loginfo(state)
-        
-        # if state == 5:
-        #     rospy.loginfo(mission2_count)
+
         prev_state = state
 
     def loginfo(self, data):
-        if data == 0:
-            str = "평시주행"
-        elif data == 1:
-            str = "어린이 보호구역"
-        elif data == 2:
-            str = "동적 장애물"
-        elif data == 3:
-            str = "라바콘"
-        elif data == 4:
-            str = "정적 장애물"
-        elif data == 5:
-            str = "판단중"
+        if data == StateNum.NORMAL_DRIVING_WITH_YOLO:
+            str = "normal driving with yolo"
+        elif data == StateNum.NORMAL_DRIVING:
+            str = "normal driving"
+        elif data == StateNum.SCHOOL_ZONE_SIGN_RECOGNITION:
+            str = "school zone sign recognition"
+        elif data == StateNum.SCHOOL_ZONE_CROSSING_RECOGNITION:
+            str = "school zone crossing recognition"
+        elif data == StateNum.SCHOOL_ZONE_RESTART:
+            str = "school zone restart"
+        elif data == StateNum.DYNAMIC_OBSTACLE:
+            str = "dynamic object"
+        elif data == StateNum.RUBBERCON_DRIVING:
+            str = "rubber cone"
+        elif data == StateNum.STATIC_OBSTACLE:
+            str = "static object"
 
         rospy.loginfo(str)
+        # rospy.loginfo(yolo_nothing_count)
         
 # ------------------------ run ------------------------
 def run():
-    rospy.init_node("lidar_example")
-    new_class = LidarReceiver()
+    rospy.init_node("Center_Node")
+    center = Center()
     rospy.spin()
 
 # ------------------------ __name__ ------------------------
